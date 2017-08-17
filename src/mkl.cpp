@@ -17,7 +17,7 @@ void MKLSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads) {
                                                  csr->rowPtr, csr->rowPtr + 1,
                                                  csr->colIndices, csr->values);
   if (SPARSE_STATUS_SUCCESS != stat) {
-    cerr << "Failed to create MKL CSR.\n";
+    cerr << "Failed to create MKL matrix. Error code: " << stat << "\n";
     exit(1);
   }
   
@@ -27,19 +27,19 @@ void MKLSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads) {
   
   stat = mkl_sparse_copy(mklA, descL, &mklL);
   if (SPARSE_STATUS_SUCCESS != stat) {
-    cerr << "Failed to create MKL CSC lower.\n";
+    cerr << "Failed to create MKL lower triangular matrix. Error code: " << stat << "\n";
     exit(1);
   }
   
   stat = mkl_sparse_set_sv_hint(mklL, SPARSE_OPERATION_NON_TRANSPOSE, descL, REPEAT);  
   if (SPARSE_STATUS_SUCCESS != stat) {
-    cerr << "Failed to set MKL sv hint.\n";
+    cerr << "Failed to set MKL sv hint. Error code: " << stat << "\n";
     exit(1);
   }
   
   stat = mkl_sparse_optimize(mklL);
   if (SPARSE_STATUS_SUCCESS != stat) {
-    cerr << "Failed to sparse optimize.\n";
+    cerr << "Failed to sparse optimize. Error code: " << stat << "\n";
     exit(1);
   }
 }
@@ -54,7 +54,7 @@ void MKLSolver::forwardSolve(double* __restrict b, double* __restrict x) {
 
 #else
 
-void MKLSolver::init(CSCMatrix *A, int numThreads) {
+void MKLSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads) {
   cerr << "MKL is not supported on this platform.\n";
   exit(1);
 }
