@@ -34,7 +34,7 @@ add_executable(sptrsv ${SOURCE_FILES} ${HEADER_FILES})
 include_directories(${CMAKE_SOURCE_DIR}/../MMMatrixIO/src)
 find_library(MMMatrixIO
   mmmatrixio
-  PATHS ${CMAKE_SOURCE_DIR}/../MMMatrixIO/build
+  PATHS ${CMAKE_SOURCE_DIR}/../lib/mmmatrixio
 )
 target_link_libraries(sptrsv ${MMMatrixIO})
 
@@ -44,7 +44,7 @@ target_link_libraries(sptrsv ${MMMatrixIO})
 include_directories(${CMAKE_SOURCE_DIR}/../docopt.cpp)
 find_library(docopt
   docopt
-  PATHS ${CMAKE_SOURCE_DIR}/../docopt.cpp/build
+  PATHS ${CMAKE_SOURCE_DIR}/../lib/docopt.cpp
 )
 target_link_libraries(sptrsv ${docopt})
 
