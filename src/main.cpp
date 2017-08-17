@@ -1,39 +1,58 @@
 #include "profiler.h"
 #include "docopt/docopt.h"
 #include <iostream>
+#include "matrix.h"
 
 using namespace thundercat;
 using namespace std;
 
 static const char USAGE[] =
-R"(Naval Fate.
+R"(OzU SRL SpTRSV.
 
     Usage:
-      naval_fate ship new <name>...
-      naval_fate ship <name> move <x> <y> [--speed=<kn>]
-      naval_fate ship shoot <x> <y>
-      naval_fate mine (set|remove) <x> <y> [--moored | --drifting]
-      naval_fate (-h | --help)
-      naval_fate --version
+      sptrsv <mtxFile> (Reference | MKL) [--threads=<num>] [--debug]
+      sptrsv (-h | --help)
+      sptrsv --version
 
     Options:
-      -h --help     Show this screen.
-      --version     Show version.
-      --speed=<kn>  Speed in knots [default: 10].
-      --moored      Moored (anchored) mine.
-      --drifting    Drifting mine.
+      -h --help            Show this screen.
+      --version            Show version.
+      -d --debug           Turn debug mode on
+      --threads=<num>      Number of threads to use [default: 1].
 )";
 
+
+MMMatrix *mmMatrix;
+bool DEBUG_MODE_ON;
+int NUM_THREADS;
+int ITERS;
+
+void parseCommandLineOptions(int argc, const char *argv[]);
+
 int main(int argc, const char *argv[]) {
+  parseCommandLineOptions(argc, argv);
+
+  mmMatrix->print();
+  cout << "Debug? : " << DEBUG_MODE_ON << "\n";
+  cout << "Threads: " << NUM_THREADS << "\n";
+  
+  return 0;
+}
+
+void parseCommandLineOptions(int argc, const char *argv[]) {
   std::map<std::string, docopt::value> args
     = docopt::docopt(USAGE,
                      { argv + 1, argv + argc },
                      true,               // show help if requested
-                     "Naval Fate 2.0");  // version string
-  
-  for(auto const& arg : args) {
-    std::cout << arg.first <<  arg.second << std::endl;
+                     "SpTRSV 0.1");  // version string
+
+  mmMatrix = MMMatrix::fromFile(args["<mtxFile>"].asString());
+
+  NUM_THREADS = args["--threads"].asLong();
+  if (NUM_THREADS <= 0) {
+    cerr << "Number of threads has to be positive.\n";
+    exit(1);
   }
-  
-  return 0;
+
+  DEBUG_MODE_ON = args["--debug"].asBool();
 }
