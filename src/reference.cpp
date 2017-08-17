@@ -1,4 +1,5 @@
 #include "method.h"
+#include <cstring>
 
 using namespace thundercat;
 using namespace std;

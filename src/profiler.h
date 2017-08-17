@@ -1,7 +1,6 @@
 #ifndef _PROFILING_H_
 #define _PROFILING_H_
 
-#include <sys/time.h>
 #include <vector>
 #include <string>
 #include <functional>

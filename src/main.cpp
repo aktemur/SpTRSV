@@ -4,6 +4,7 @@
 #include "method.h"
 #include <cmath>
 #include <iostream>
+#include <chrono>
 #ifdef OPENMP_EXISTS
 #include "omp.h"
 #endif
