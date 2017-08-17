@@ -4,6 +4,10 @@
 #include "matrix.h"
 #include <string>
 
+#ifdef MKL_EXISTS
+#include <mkl.h>
+#endif
+
 namespace thundercat {
   class SparseTriangularSolver {
   public:
@@ -31,6 +35,12 @@ namespace thundercat {
     virtual void forwardSolve(CSCMatrix* A, double* __restrict b, double* __restrict x);
 
     virtual std::string getName();
+    
+  private:
+#ifdef MKL_EXISTS
+    sparse_matrix_t mklL;
+    matrix_descr descL;
+#endif
   };
 }
 
