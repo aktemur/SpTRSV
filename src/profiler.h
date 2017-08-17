@@ -11,6 +11,7 @@ namespace thundercat {
     long long duration;
     int level;
     std::string description;
+    int iterations;
   };
   
   class Profiler {
@@ -18,6 +19,7 @@ namespace thundercat {
     static std::vector<TimingInfo> timingInfos;
 
     static void recordTime(std::string description, std::function<void()> codeBlock);
+    static void recordTime(std::string description, int iterations, std::function<void()> codeBlock);
     static void print();
 
   private:

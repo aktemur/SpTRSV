@@ -9,6 +9,10 @@ int Profiler::timingLevel = 0;
 std::vector<TimingInfo> Profiler::timingInfos;
 
 void Profiler::recordTime(std::string description, std::function<void()> codeBlock) {
+  recordTime(description, 1, codeBlock);
+}
+
+void Profiler::recordTime(std::string description, int iterations, std::function<void()> codeBlock) {
   timingLevel++;
   auto start = std::chrono::high_resolution_clock::now();
   codeBlock();
@@ -18,6 +22,7 @@ void Profiler::recordTime(std::string description, std::function<void()> codeBlo
   info.level = timingLevel;
   info.duration = duration;
   info.description = description;
+  info.iterations = iterations;
   timingInfos.push_back(info);
   timingLevel--;
 }
@@ -25,7 +30,7 @@ void Profiler::recordTime(std::string description, std::function<void()> codeBlo
 void Profiler::print() {
   for (auto &info : timingInfos) {
     std::cout << info.level << " ";
-    std::cout << std::setw(10) << info.duration;
+    std::cout << std::setw(10) << (info.duration / (double)info.iterations);
     std::cout << " usec.    " << info.description << "\n";
   }
 }
