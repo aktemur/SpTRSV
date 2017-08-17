@@ -3,7 +3,7 @@
 using namespace thundercat;
 using namespace std;
 
-void ReferenceSolver::solve(CSCMatrix* A, double* __restrict b, double* __restrict x) {
+void ReferenceSolver::forwardSolve(CSCMatrix* A, double* __restrict b, double* __restrict x) {
   double *leftsum = new double[A->M];
   memset(leftsum, 0, sizeof(double) * A->M);
   
@@ -18,3 +18,6 @@ void ReferenceSolver::solve(CSCMatrix* A, double* __restrict b, double* __restri
   delete[] leftsum;
 }
 
+string ReferenceSolver::getName() {
+  return "Reference";
+}

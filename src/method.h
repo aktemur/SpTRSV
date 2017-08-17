@@ -2,26 +2,35 @@
 #define _METHOD_H_
 
 #include "matrix.h"
-#ifdef OPENMP_EXISTS
-#include "omp.h"
-#endif
+#include <string>
 
 namespace thundercat {
-  class SpTRSVMethod {
+  class SparseTriangularSolver {
   public:
+    // Optional initialization step in case the method wants to do some pre computation
+    virtual void init(CSCMatrix* A, int numThreads);
+
     // Solve for x in Ax=b where A is a lower triangular matrix
     // with a full diagonal.
-    virtual void solve(CSCMatrix* A, double* __restrict b, double* __restrict x) = 0;
+    virtual void forwardSolve(CSCMatrix* A, double* __restrict b, double* __restrict x) = 0;
+    
+    virtual std::string getName() = 0;
   };
   
-  class ReferenceSolver: public SpTRSVMethod {
+  class ReferenceSolver: public SparseTriangularSolver {
   public:
-    virtual void solve(CSCMatrix* A, double* __restrict b, double* __restrict x);
+    virtual void forwardSolve(CSCMatrix* A, double* __restrict b, double* __restrict x);
+
+    virtual std::string getName();
   };
 
-  class MKLSolver: public SpTRSVMethod {
+  class MKLSolver: public SparseTriangularSolver {
   public:
-    virtual void solve(CSCMatrix* A, double* __restrict b, double* __restrict x);
+    virtual void init(CSCMatrix* A, int numThreads);
+
+    virtual void forwardSolve(CSCMatrix* A, double* __restrict b, double* __restrict x);
+
+    virtual std::string getName();
   };
 }
 

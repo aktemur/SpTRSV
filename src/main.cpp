@@ -4,6 +4,9 @@
 #include "method.h"
 #include <cmath>
 #include <iostream>
+#ifdef OPENMP_EXISTS
+#include "omp.h"
+#endif
 
 using namespace thundercat;
 using namespace std;
@@ -11,7 +14,7 @@ using namespace std;
 string filename;
 CSCMatrix *ldCSCMatrix;
 CSRMatrix *ldCSRMatrix;
-SpTRSVMethod *method;
+SparseTriangularSolver *method;
 double *bVector;
 double *xVector;
 double *xVectorReference;
@@ -21,12 +24,14 @@ int NUM_THREADS;
 
 //----------------------------------------------------------
 void parseCommandLineOptions(int argc, const char *argv[]);
+void setParallelism();
 void loadMatrix();
 void populateVectors();
 void benchmark();
 
 int main(int argc, const char *argv[]) {
   parseCommandLineOptions(argc, argv);
+  setParallelism();
   loadMatrix();
   populateVectors();
   benchmark();
@@ -52,14 +57,19 @@ R"(OzU SRL SpTRSV.
 void parseCommandLineOptions(int argc, const char *argv[]) {
   std::map<std::string, docopt::value> args
     = docopt::docopt(USAGE, { argv + 1, argv + argc }, true, "SpTRSV 0.1");
+  
+  DEBUG_MODE_ON = args["--debug"].asBool();
 
-  if (args["reference"]) {
+  if (args["reference"].asBool()) {
     method = new ReferenceSolver;
-  } else if (args["mkl"]) {
+  } else if (args["mkl"].asBool()) {
     method = new MKLSolver;
   } else {
     cerr << "Unexpection situation occurred while parsing the method.\n";
     exit(1);
+  }
+  if (DEBUG_MODE_ON) {
+    cout << "Method: " << method->getName() << "\n";
   }
   
   NUM_THREADS = args["--threads"].asLong();
@@ -68,15 +78,33 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
     exit(1);
   }
 
-  DEBUG_MODE_ON = args["--debug"].asBool();
-
   filename = args["<mtxFile>"].asString();
+}
+
+void setParallelism() {
+#ifdef OPENMP_EXISTS
+  omp_set_num_threads(NUM_THREADS);
+  int nthreads = -1;
+#pragma omp parallel
+  {
+#pragma omp master
+    {
+      nthreads = omp_get_num_threads();
+    }
+  }
+  if (DEBUG_MODE_ON)
+    cout << "NumThreads: " << nthreads << "\n";
+#endif
 }
 
 void loadMatrix() {
   MMMatrix *mmMatrix = MMMatrix::fromFile(filename);
-  if (mmMatrix->N != mmMatrix->M) {
+  if (!mmMatrix->isSquare()) {
     cerr << "Only square matrices are accepted.\n";
+    exit(1);
+  }
+  if (!mmMatrix->hasFullDiagonal()) {
+    cerr << "Input matrix has to have a full diagonal.\n";
     exit(1);
   }
   
@@ -85,18 +113,6 @@ void loadMatrix() {
   ldCSCMatrix = ldMatrix->toCSC();
   ldCSRMatrix = ldMatrix->toCSR();
   delete ldMatrix;
-  
-  // Validate the matrix
-  // The diagonal has to be full.
-  for (int j = 0; j < ldCSCMatrix->M; j++) {
-    int k = ldCSCMatrix->colPtr[j];
-    // The first element of the column has to be nonzero
-    // and it has to be at row index j
-    if (ldCSCMatrix->rowIndices[k] != j || ldCSCMatrix->values[k] == 0) {
-      cerr << "The given matrix does not have a full diagonal.\n";
-      exit(1);
-    }
-  }
 }
 
 void populateVectors() {
@@ -126,8 +142,8 @@ void populateVectors() {
   }
 }
 
-void solve() {
-  method->solve(ldCSCMatrix, bVector, xVector);
+void forwardSolve() {
+  method->forwardSolve(ldCSCMatrix, bVector, xVector);
 }
 
 void validateResult() {
@@ -146,7 +162,7 @@ int findNumIterations() {
   // Find iteration count so that total execution will be about 2 secs.
   auto start = std::chrono::high_resolution_clock::now();
   for (unsigned i = 0; i < 5; i++) {
-    solve();
+    forwardSolve();
   }
   auto end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
@@ -157,17 +173,18 @@ int findNumIterations() {
 }
 
 void benchmark() {
-  solve();
+  forwardSolve();
   validateResult();
   
   int iters = findNumIterations();
-  cout << "ITERS: " << iters << "\n";
-  
   Profiler::recordTime("SpTRSV", iters, [iters]() {
     for (unsigned i = 0; i < iters; i++) {
-      solve();
+      forwardSolve();
     }
   });
-
   Profiler::print();
+  
+  if (DEBUG_MODE_ON) {
+    cout << "ITERS: " << iters << "\n";
+  }
 }

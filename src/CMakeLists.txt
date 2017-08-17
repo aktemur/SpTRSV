@@ -16,6 +16,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${dir}")
 set(SOURCE_FILES
     docopt/docopt.cpp
     main.cpp
+    method.cpp
     mkl.cpp
     profiler.cpp
     reference.cpp
