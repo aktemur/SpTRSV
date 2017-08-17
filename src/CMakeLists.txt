@@ -14,7 +14,6 @@ set(dir ${CMAKE_CURRENT_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${dir}")
 
 set(SOURCE_FILES
-    docopt/docopt.cpp
     main.cpp
     method.cpp
     mkl.cpp
@@ -23,10 +22,6 @@ set(SOURCE_FILES
 )
 
 set(HEADER_FILES
-    docopt/docopt.h
-    docopt/docopt_private.h
-    docopt/docopt_util.h
-    docopt/docopt_value.h
     method.h
     profiler.h
 )
@@ -42,6 +37,16 @@ find_library(MMMatrixIO
   PATHS ${CMAKE_SOURCE_DIR}/../MMMatrixIO/build
 )
 target_link_libraries(sptrsv ${MMMatrixIO})
+
+##
+## docopt library
+##
+include_directories(${CMAKE_SOURCE_DIR}/../docopt.cpp)
+find_library(docopt
+  docopt
+  PATHS ${CMAKE_SOURCE_DIR}/../docopt.cpp/build
+)
+target_link_libraries(sptrsv ${docopt})
 
 
 ##

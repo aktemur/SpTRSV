@@ -1,5 +1,5 @@
 #include "profiler.h"
-#include "docopt/docopt.h"
+#include "docopt.h"
 #include "matrix.h"
 #include "method.h"
 #include <cmath>
