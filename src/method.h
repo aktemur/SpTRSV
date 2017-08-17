@@ -11,28 +11,33 @@
 namespace thundercat {
   class SparseTriangularSolver {
   public:
-    // Optional initialization step in case the method wants to do some pre computation
-    virtual void init(CSCMatrix* A, int numThreads);
+    virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads) = 0;
 
     // Solve for x in Ax=b where A is a lower triangular matrix
-    // with a full diagonal.
-    virtual void forwardSolve(CSCMatrix* A, double* __restrict b, double* __restrict x) = 0;
+    // with a full diagonal. The matrix A should be set beforehand using the init method.
+    // This is because some methods prefer CSR format while others like CSC.
+    virtual void forwardSolve(double* __restrict b, double* __restrict x) = 0;
     
     virtual std::string getName() = 0;
   };
   
   class ReferenceSolver: public SparseTriangularSolver {
   public:
-    virtual void forwardSolve(CSCMatrix* A, double* __restrict b, double* __restrict x);
+    virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads);
+
+    virtual void forwardSolve(double* __restrict b, double* __restrict x);
 
     virtual std::string getName();
+
+  private:
+    CSCMatrix *cscMatrix;
   };
 
   class MKLSolver: public SparseTriangularSolver {
   public:
-    virtual void init(CSCMatrix* A, int numThreads);
+    virtual void init(CSRMatrix* csr, CSCMatrix *csc, int numThreads);
 
-    virtual void forwardSolve(CSCMatrix* A, double* __restrict b, double* __restrict x);
+    virtual void forwardSolve(double* __restrict b, double* __restrict x);
 
     virtual std::string getName();
     

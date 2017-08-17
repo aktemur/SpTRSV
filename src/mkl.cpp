@@ -8,16 +8,16 @@ using namespace std;
 
 #define REPEAT 150 //TODO
 
-void MKLSolver::init(CSCMatrix *A, int numThreads) {
+void MKLSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads) {
   mkl_set_num_threads_local(numThreads);
   
   sparse_matrix_t mklA;
-  sparse_status_t stat = mkl_sparse_d_create_csc(&mklA,
-                                                 SPARSE_INDEX_BASE_ZERO, A->N, A->M,
-                                                 A->colPtr, A->colPtr + 1,
-                                                 A->rowIndices, A->values);
+  sparse_status_t stat = mkl_sparse_d_create_csr(&mklA,
+                                                 SPARSE_INDEX_BASE_ZERO, csr->N, csr->M,
+                                                 csr->rowPtr, csr->rowPtr + 1,
+                                                 csr->colIndices, csr->values);
   if (SPARSE_STATUS_SUCCESS != stat) {
-    cerr << "Failed to create MKL CSC.\n";
+    cerr << "Failed to create MKL CSR.\n";
     exit(1);
   }
   
@@ -31,24 +31,25 @@ void MKLSolver::init(CSCMatrix *A, int numThreads) {
     exit(1);
   }
   
-  stat = mkl_sparse_set_sv_hint(mklL, SPARSE_OPERATION_NON_TRANSPOSE, descL, REPEAT);
-  
+  stat = mkl_sparse_set_sv_hint(mklL, SPARSE_OPERATION_NON_TRANSPOSE, descL, REPEAT);  
   if (SPARSE_STATUS_SUCCESS != stat) {
     cerr << "Failed to set MKL sv hint.\n";
     exit(1);
   }
   
   stat = mkl_sparse_optimize(mklL);
-  
   if (SPARSE_STATUS_SUCCESS != stat) {
-    cerr << "Failed to sparse optimize\n";
+    cerr << "Failed to sparse optimize.\n";
     exit(1);
   }
-
 }
 
-void MKLSolver::forwardSolve(CSCMatrix* A, double* __restrict b, double* __restrict x) {
-  mkl_sparse_d_trsv(SPARSE_OPERATION_NON_TRANSPOSE, 1, mklL, descL, b, x);
+void MKLSolver::forwardSolve(double* __restrict b, double* __restrict x) {
+  sparse_status_t stat = mkl_sparse_d_trsv(SPARSE_OPERATION_NON_TRANSPOSE, 1, mklL, descL, b, x);
+  if (SPARSE_STATUS_SUCCESS != stat) {
+    cerr << "Failed to solve. Error code: " << stat << "\n";
+    exit(1);
+  }
 }
 
 #else
@@ -58,7 +59,7 @@ void MKLSolver::init(CSCMatrix *A, int numThreads) {
   exit(1);
 }
 
-void MKLSolver::forwardSolve(CSCMatrix* A, double* __restrict b, double* __restrict x) {
+void MKLSolver::forwardSolve(double* __restrict b, double* __restrict x) {
   cerr << "MKL is not supported on this platform.\n";
   exit(1);
 }

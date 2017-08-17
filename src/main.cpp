@@ -144,7 +144,7 @@ void populateVectors() {
 }
 
 void forwardSolve() {
-  method->forwardSolve(ldCSCMatrix, bVector, xVector);
+  method->forwardSolve(bVector, xVector);
 }
 
 void validateResult() {
@@ -174,6 +174,8 @@ int findNumIterations() {
 }
 
 void benchmark() {
+  method->init(ldCSRMatrix, ldCSCMatrix, NUM_THREADS);
+
   forwardSolve();
   validateResult();
   
