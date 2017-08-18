@@ -197,6 +197,9 @@ int findNumIterations() {
 
 void benchmark() {
   int iters = findNumIterations();
+  if (DEBUG_MODE_ON) {
+    cout << "ITERS: " << iters << "\n";
+  }
   method->init(ldCSRMatrix, ldCSCMatrix, NUM_THREADS, iters);
 
   method->forwardSolve(bVector, xVector);
@@ -210,8 +213,4 @@ void benchmark() {
     }
   });
   Profiler::print();
-  
-  if (DEBUG_MODE_ON) {
-    cout << "ITERS: " << iters << "\n";
-  }
 }
