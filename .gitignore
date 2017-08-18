@@ -1,3 +1,9 @@
 *~
 build*
 lib
+
+tools/batch.sh
+
+tools/matrixNames.txt
+
+data

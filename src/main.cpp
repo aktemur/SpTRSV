@@ -22,6 +22,7 @@ double *xVectorReference;
 
 bool DEBUG_MODE_ON;
 int NUM_THREADS;
+int ITERS;
 
 //----------------------------------------------------------
 void parseCommandLineOptions(int argc, const char *argv[]);
@@ -44,7 +45,7 @@ static const char USAGE[] =
 R"(OzU SRL SpTRSV.
 
   Usage:
-    sptrsv <mtxFile> (sequentialCSR | sequentialCSC | mklCSR | mklCSC | mklIECSR | mklIECSC) [--threads=<num>] [--debug]
+    sptrsv <mtxFile> (sequentialCSR | sequentialCSC | mklCSR | mklCSC | mklIECSR | mklIECSC) [--threads=<num>] [--debug] [--iters=<count>]
     sptrsv (-h | --help)
     sptrsv --version
 
@@ -52,7 +53,8 @@ R"(OzU SRL SpTRSV.
     -h --help                     Show this screen.
     --version                     Show version.
     -d --debug                    Turn debug mode on.
-    -t <num>, --threads <num>     Number of threads to use [default: 1].
+    -t=<num>, --threads=<num>     Number of threads to use [default: 1].
+    --iters=<count>               Number of iterations for benchmarking.
 )";
 
 void parseCommandLineOptions(int argc, const char *argv[]) {
@@ -87,6 +89,12 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
     exit(1);
   }
 
+  if (args["--iters"]) {
+    ITERS = args["--iters"].asLong();
+  } else {
+    ITERS = -1;
+  }
+  
   filename = args["<mtxFile>"].asString();
 }
 
@@ -164,6 +172,10 @@ void validateResult() {
 }
 
 int findNumIterations() {
+  if (ITERS > 0) {
+    // Iterations specified as a command line argument
+    return ITERS;
+  }
   // Find iteration count so that total execution with
   // the reference implementation will be about 4 secs.
   SequentialCSRSolver solver;
@@ -186,7 +198,9 @@ void benchmark() {
   method->init(ldCSRMatrix, ldCSCMatrix, NUM_THREADS, iters);
 
   method->forwardSolve(bVector, xVector);
-  validateResult();
+  if (DEBUG_MODE_ON) {
+    validateResult();
+  }
   
   Profiler::recordTime("SpTRSV", iters, [iters]() {
     for (unsigned i = 0; i < iters; i++) {
