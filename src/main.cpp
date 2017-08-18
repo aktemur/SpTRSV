@@ -44,7 +44,7 @@ static const char USAGE[] =
 R"(OzU SRL SpTRSV.
 
   Usage:
-    sptrsv <mtxFile> (reference | mklcsr | mklcsc | mklIEcsr | mklIEcsc) [--threads=<num>] [--debug]
+    sptrsv <mtxFile> (sequentialCSR | sequentialCSC | mklCSR | mklCSC | mklIECSR | mklIECSC) [--threads=<num>] [--debug]
     sptrsv (-h | --help)
     sptrsv --version
 
@@ -61,15 +61,17 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
   
   DEBUG_MODE_ON = args["--debug"].asBool();
 
-  if (args["reference"].asBool()) {
-    method = new ReferenceSolver;
-  } else if (args["mklcsr"].asBool()) {
+  if (args["sequentialCSR"].asBool()) {
+    method = new SequentialCSRSolver;
+  } else if (args["sequentialCSC"].asBool()) {
+    method = new SequentialCSCSolver;
+  } else if (args["mklCSR"].asBool()) {
     method = new MKLCSRSolver;
-  } else if (args["mklcsc"].asBool()) {
+  } else if (args["mklCSC"].asBool()) {
     method = new MKLCSCSolver;
-  } else if (args["mklIEcsr"].asBool()) {
+  } else if (args["mklIECSR"].asBool()) {
     method = new MKLInspectorExecutorCSRSolver;
-  } else if (args["mklIEcsc"].asBool()) {
+  } else if (args["mklIECSC"].asBool()) {
     method = new MKLInspectorExecutorCSCSolver;
   } else {
     cerr << "Unexpection situation occurred while parsing the method.\n";
@@ -164,7 +166,7 @@ void validateResult() {
 int findNumIterations() {
   // Find iteration count so that total execution with
   // the reference implementation will be about 4 secs.
-  ReferenceSolver solver;
+  SequentialCSRSolver solver;
   solver.init(ldCSRMatrix, ldCSCMatrix, NUM_THREADS, 5);
 
   auto start = std::chrono::high_resolution_clock::now();

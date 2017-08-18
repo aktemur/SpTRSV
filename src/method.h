@@ -21,7 +21,19 @@ namespace thundercat {
     virtual std::string getName() = 0;
   };
   
-  class ReferenceSolver: public SparseTriangularSolver {
+  class SequentialCSRSolver: public SparseTriangularSolver {
+  public:
+    virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads, int iters);
+    
+    virtual void forwardSolve(double* __restrict b, double* __restrict x);
+    
+    virtual std::string getName();
+    
+  private:
+    CSRMatrix *csrMatrix;
+  };
+
+  class SequentialCSCSolver: public SparseTriangularSolver {
   public:
     virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads, int iters);
 

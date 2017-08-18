@@ -18,7 +18,7 @@ set(SOURCE_FILES
     method.cpp
     mkl.cpp
     profiler.cpp
-    reference.cpp
+    sequential.cpp
 )
 
 set(HEADER_FILES
