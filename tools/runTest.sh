@@ -63,4 +63,7 @@ findMins() {
 
 findMins
 
-echo "$methodName $param1 $param2 $param3 $param4 test on $HOSTNAME has finished." | ssmtp "$methodName $param1 $param2 test on $HOSTNAME" baris.aktemur@ozyegin.edu.tr
+echo "Subject: $methodName SpTRSV on $HOSTNAME 
+
+$methodName $param1 $param2 $param3 $param4 test on $HOSTNAME has finished.
+" | ssmtp baris.aktemur@ozyegin.edu.tr
