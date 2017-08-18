@@ -1,6 +1,7 @@
 #include "method.h"
 #include <cstring>
 #include <iostream>
+#include <atomic>
 #ifdef OPENMP_EXISTS
 #include "omp.h"
 #endif
@@ -9,7 +10,7 @@ using namespace thundercat;
 using namespace std;
 
 /**
- * This solver is taken from 
+ * This solver is adapted from 
  *   Liu W., Li A., Hogg J., Duff I.S., Vinter B. (2016)
  *   A Synchronization-Free Algorithm for Parallel Sparse Triangular Solves.
  *   In Euro-Par 2016: Parallel Processing.
@@ -29,10 +30,12 @@ void EuroPar16Solver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads, int i
 
 void EuroPar16Solver::forwardSolve(double* __restrict b, double* __restrict x) {
   int N = cscMatrix->N;
-  volatile double *leftsum = new double[N];
-  memset((double *)leftsum, 0, sizeof(double) * N);
-  volatile int *knownVars = new int[N];
-  memset((int *)knownVars, 0, sizeof(int) * N);
+  atomic<double> *leftsum = new atomic<double>[N];
+  atomic<int> *knownVars = new atomic<int>[N];
+  for (int i = 0; i < N; i++) {
+    atomic_init(&(leftsum[i]), 0.0);
+    atomic_init(&(knownVars[i]), 0);
+  }
   int *colPtr = cscMatrix->colPtr;
   int *rowIndices = cscMatrix->rowIndices;
   double *values = cscMatrix->values;
@@ -49,9 +52,11 @@ void EuroPar16Solver::forwardSolve(double* __restrict b, double* __restrict x) {
     for (int k = colPtr[j] + 1; k < cscMatrix->colPtr[j+1]; k++) {
       int row = rowIndices[k];
       double mult = values[k] * xj;
-#pragma omp atomic update
-      leftsum[row] += mult;
-#pragma omp atomic update
+      double desired, expected;
+      do {
+        expected = leftsum[row].load();
+        desired = expected + mult;
+      } while (!leftsum[row].compare_exchange_weak(expected, desired));
       knownVars[row]++;
     }
   }
