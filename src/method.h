@@ -45,6 +45,19 @@ namespace thundercat {
     CSCMatrix *cscMatrix;
   };
 
+  class EuroPar16Solver: public SparseTriangularSolver {
+  public:
+    virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads, int iters);
+    
+    virtual void forwardSolve(double* __restrict b, double* __restrict x);
+    
+    virtual std::string getName();
+    
+  private:
+    CSCMatrix *cscMatrix;
+    int *rowLengths;
+  };
+
   class MKLSolver: public SparseTriangularSolver {
   public:
     virtual void init(CSRMatrix* csr, CSCMatrix *csc, int numThreads, int iters);

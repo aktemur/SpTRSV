@@ -45,7 +45,7 @@ static const char USAGE[] =
 R"(OzU SRL SpTRSV.
 
   Usage:
-    sptrsv <mtxFile> (sequentialCSR | sequentialCSC | mklCSR | mklCSC | mklIECSR | mklIECSC) [--threads=<num>] [--debug] [--iters=<count>]
+    sptrsv <mtxFile> (seqCSR | seqCSC | mklCSR | mklCSC | mklIECSR | mklIECSC | europar16) [--threads=<num>] [--debug] [--iters=<count>]
     sptrsv (-h | --help)
     sptrsv --version
 
@@ -53,7 +53,7 @@ R"(OzU SRL SpTRSV.
     -h --help                     Show this screen.
     --version                     Show version.
     -d --debug                    Turn debug mode on.
-    -t=<num>, --threads=<num>     Number of threads to use [default: 1].
+    --threads=<num>               Number of threads to use [default: 1].
     --iters=<count>               Number of iterations for benchmarking.
 )";
 
@@ -63,9 +63,9 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
   
   DEBUG_MODE_ON = args["--debug"].asBool();
 
-  if (args["sequentialCSR"].asBool()) {
+  if (args["seqCSR"].asBool()) {
     method = new SequentialCSRSolver;
-  } else if (args["sequentialCSC"].asBool()) {
+  } else if (args["seqCSC"].asBool()) {
     method = new SequentialCSCSolver;
   } else if (args["mklCSR"].asBool()) {
     method = new MKLCSRSolver;
@@ -75,6 +75,8 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
     method = new MKLInspectorExecutorCSRSolver;
   } else if (args["mklIECSC"].asBool()) {
     method = new MKLInspectorExecutorCSCSolver;
+  } else if (args["europar16"].asBool()) {
+    method = new EuroPar16Solver;
   } else {
     cerr << "Unexpection situation occurred while parsing the method.\n";
     exit(1);
