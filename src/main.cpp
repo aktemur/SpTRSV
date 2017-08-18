@@ -156,7 +156,7 @@ void validateResult() {
   
   for (int j = 0; j < M; j++) {
     double diff = xVectorReference[j] - xVector[j];
-    if (abs(diff) > 0.000001) {
+    if (abs(diff) > 0.00001) {
       cerr << "OOPS!! Vectors different at index "
            << j << ": " << xVectorReference[j] << " vs " << xVector[j] << "\n";
     }
