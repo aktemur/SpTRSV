@@ -1,5 +1,9 @@
 #include "method.h"
 #include <cstring>
+#include <iostream>
+#ifdef OPENMP_EXISTS
+#include "omp.h"
+#endif
 
 using namespace thundercat;
 using namespace std;
@@ -14,22 +18,26 @@ using namespace std;
 void EuroPar16Solver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads, int iters) {
   cscMatrix = csc;
   rowLengths = new int[cscMatrix->N];
-  // TODO: Do this in parallel
+  int *rowIndices = cscMatrix->rowIndices;
+  
+#pragma omp parallel for
   for (int i = 0; i < cscMatrix->NZ; i++) {
-    rowLengths[cscMatrix->rowIndices[i]]++; // TODO: This should be atomic
+#pragma omp atomic update
+    rowLengths[rowIndices[i]]++;
   }
 }
 
 void EuroPar16Solver::forwardSolve(double* __restrict b, double* __restrict x) {
   int N = cscMatrix->N;
-  double *leftsum = new double[N];
-  memset(leftsum, 0, sizeof(double) * N);
-  int *knownVars = new int[N];
-  memset(knownVars, 0, sizeof(int) * N);
+  volatile double *leftsum = new double[N];
+  memset((double *)leftsum, 0, sizeof(double) * N);
+  volatile int *knownVars = new int[N];
+  memset((int *)knownVars, 0, sizeof(int) * N);
   int *colPtr = cscMatrix->colPtr;
   int *rowIndices = cscMatrix->rowIndices;
   double *values = cscMatrix->values;
   
+#pragma omp parallel for
   for (int j = 0; j < N; j++) {
     int rowLength = rowLengths[j] - 1;
     while (rowLength != knownVars[j]) {
@@ -40,8 +48,11 @@ void EuroPar16Solver::forwardSolve(double* __restrict b, double* __restrict x) {
     x[j] = xj;
     for (int k = colPtr[j] + 1; k < cscMatrix->colPtr[j+1]; k++) {
       int row = rowIndices[k];
-      leftsum[row] += values[k] * xj; // TODO: This should be atomic
-      knownVars[row]++;               // TODO: This should be atomic
+      double mult = values[k] * xj;
+#pragma omp atomic update
+      leftsum[row] += mult;
+#pragma omp atomic update
+      knownVars[row]++;
     }
   }
   
