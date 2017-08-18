@@ -36,15 +36,59 @@ namespace thundercat {
   class MKLSolver: public SparseTriangularSolver {
   public:
     virtual void init(CSRMatrix* csr, CSCMatrix *csc, int numThreads);
+    
+  protected:
+    CSRMatrix *csrMatrix;
+    CSCMatrix *cscMatrix;
+  };
+
+  class MKLCSRSolver: public MKLSolver {
+  public:
+    virtual std::string getName();
+    
+    virtual void forwardSolve(double* __restrict b, double* __restrict x);
+  };
+
+  class MKLCSCSolver: public MKLSolver {
+  public:
+    virtual std::string getName();
+    
+    virtual void forwardSolve(double* __restrict b, double* __restrict x);
+  };
+
+  class MKLInspectorExecutorSolver: public SparseTriangularSolver {
+  public:
+    virtual void init(CSRMatrix* csr, CSCMatrix *csc, int numThreads);
 
     virtual void forwardSolve(double* __restrict b, double* __restrict x);
 
-    virtual std::string getName();
+#ifdef MKL_EXISTS
+  protected:
+    virtual sparse_matrix_t createMKLMatrix(CSRMatrix* csr, CSCMatrix *csc) = 0;
     
   private:
-#ifdef MKL_EXISTS
     sparse_matrix_t mklL;
     matrix_descr descL;
+#endif
+  };
+  
+  class MKLInspectorExecutorCSRSolver: public MKLInspectorExecutorSolver {
+  public:
+    virtual std::string getName();
+    
+#ifdef MKL_EXISTS
+  protected:
+    virtual sparse_matrix_t createMKLMatrix(CSRMatrix* csr, CSCMatrix *csc);
+#endif
+  };
+
+  class MKLInspectorExecutorCSCSolver: public MKLInspectorExecutorSolver {
+  public:
+    virtual std::string getName();
+    
+#ifdef MKL_EXISTS
+  protected:
+    virtual sparse_matrix_t createMKLMatrix(CSRMatrix* csr, CSCMatrix *csc);
 #endif
   };
 }

@@ -44,15 +44,15 @@ static const char USAGE[] =
 R"(OzU SRL SpTRSV.
 
   Usage:
-    sptrsv <mtxFile> (reference | mkl) [--threads=<num>] [--debug]
+    sptrsv <mtxFile> (reference | mklcsr | mklcsc | mklIEcsr | mklIEcsc) [--threads=<num>] [--debug]
     sptrsv (-h | --help)
     sptrsv --version
 
   Options:
-    -h --help            Show this screen.
-    --version            Show version.
-    -d --debug           Turn debug mode on
-    --threads=<num>      Number of threads to use [default: 1].
+    -h --help                     Show this screen.
+    --version                     Show version.
+    -d --debug                    Turn debug mode on.
+    -t <num>, --threads <num>     Number of threads to use [default: 1].
 )";
 
 void parseCommandLineOptions(int argc, const char *argv[]) {
@@ -63,8 +63,14 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
 
   if (args["reference"].asBool()) {
     method = new ReferenceSolver;
-  } else if (args["mkl"].asBool()) {
-    method = new MKLSolver;
+  } else if (args["mklcsr"].asBool()) {
+    method = new MKLCSRSolver;
+  } else if (args["mklcsc"].asBool()) {
+    method = new MKLCSCSolver;
+  } else if (args["mklIEcsr"].asBool()) {
+    method = new MKLInspectorExecutorCSRSolver;
+  } else if (args["mklIEcsc"].asBool()) {
+    method = new MKLInspectorExecutorCSCSolver;
   } else {
     cerr << "Unexpection situation occurred while parsing the method.\n";
     exit(1);
