@@ -1,6 +1,17 @@
 cmake_minimum_required(VERSION 2.8.8)
 project(SpTRSV)
 
+# Set a default build type if none was specified
+set(default_build_type "Release")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE STRING "Choose the type of build." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+               "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+                  
+message(STATUS "Build type is " ${CMAKE_BUILD_TYPE})
 message(STATUS "System is " ${CMAKE_SYSTEM_NAME})
 message(STATUS "Compiler is " ${CMAKE_CXX_COMPILER_ID})
 message(STATUS "Source dir is " ${CMAKE_SOURCE_DIR})
