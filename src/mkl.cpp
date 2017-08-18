@@ -6,15 +6,13 @@ using namespace std;
 
 #ifdef MKL_EXISTS
 
-#define REPEAT 150 //TODO
-
-void MKLSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads) {
+void MKLSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads, int iters) {
   mkl_set_num_threads_local(numThreads);
   csrMatrix = csr;
   cscMatrix = csc;
 }
 
-void MKLInspectorExecutorSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads) {
+void MKLInspectorExecutorSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads, int iters) {
   mkl_set_num_threads_local(numThreads);
   sparse_status_t stat;
   
@@ -24,7 +22,7 @@ void MKLInspectorExecutorSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThr
   descL.mode = SPARSE_FILL_MODE_LOWER;
   descL.diag = SPARSE_DIAG_NON_UNIT;
   
-  stat = mkl_sparse_set_sv_hint(mklL, SPARSE_OPERATION_NON_TRANSPOSE, descL, REPEAT);
+  stat = mkl_sparse_set_sv_hint(mklL, SPARSE_OPERATION_NON_TRANSPOSE, descL, iters);
   if (SPARSE_STATUS_SUCCESS != stat) {
     cerr << "Failed to set MKL sv hint. Error code: " << stat << "\n";
     exit(1);

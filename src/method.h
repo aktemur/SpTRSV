@@ -11,7 +11,7 @@
 namespace thundercat {
   class SparseTriangularSolver {
   public:
-    virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads) = 0;
+    virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads, int iters) = 0;
 
     // Solve for x in Ax=b where A is a lower triangular matrix
     // with a full diagonal. The matrix A should be set beforehand using the init method.
@@ -23,7 +23,7 @@ namespace thundercat {
   
   class ReferenceSolver: public SparseTriangularSolver {
   public:
-    virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads);
+    virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads, int iters);
 
     virtual void forwardSolve(double* __restrict b, double* __restrict x);
 
@@ -35,7 +35,7 @@ namespace thundercat {
 
   class MKLSolver: public SparseTriangularSolver {
   public:
-    virtual void init(CSRMatrix* csr, CSCMatrix *csc, int numThreads);
+    virtual void init(CSRMatrix* csr, CSCMatrix *csc, int numThreads, int iters);
     
   protected:
     CSRMatrix *csrMatrix;
@@ -58,7 +58,7 @@ namespace thundercat {
 
   class MKLInspectorExecutorSolver: public SparseTriangularSolver {
   public:
-    virtual void init(CSRMatrix* csr, CSCMatrix *csc, int numThreads);
+    virtual void init(CSRMatrix* csr, CSCMatrix *csc, int numThreads, int iters);
 
     virtual void forwardSolve(double* __restrict b, double* __restrict x);
 

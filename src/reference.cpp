@@ -4,7 +4,7 @@
 using namespace thundercat;
 using namespace std;
 
-void ReferenceSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads) {
+void ReferenceSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads, int iters) {
   cscMatrix = csc;
 }
 

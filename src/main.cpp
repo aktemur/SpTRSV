@@ -25,14 +25,14 @@ int NUM_THREADS;
 
 //----------------------------------------------------------
 void parseCommandLineOptions(int argc, const char *argv[]);
-void setParallelism();
+void initializeThreads();
 void loadMatrix();
 void populateVectors();
 void benchmark();
 
 int main(int argc, const char *argv[]) {
   parseCommandLineOptions(argc, argv);
-  setParallelism();
+  initializeThreads();
   loadMatrix();
   populateVectors();
   benchmark();
@@ -88,7 +88,7 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
   filename = args["<mtxFile>"].asString();
 }
 
-void setParallelism() {
+void initializeThreads() {
 #ifdef OPENMP_EXISTS
   omp_set_num_threads(NUM_THREADS);
   int nthreads = -1;
@@ -149,10 +149,6 @@ void populateVectors() {
   }
 }
 
-void forwardSolve() {
-  method->forwardSolve(bVector, xVector);
-}
-
 void validateResult() {
   int M = ldCSCMatrix->M;
   
@@ -166,29 +162,33 @@ void validateResult() {
 }
 
 int findNumIterations() {
-  // Find iteration count so that total execution will be about 2 secs.
+  // Find iteration count so that total execution with
+  // the reference implementation will be about 4 secs.
+  ReferenceSolver solver;
+  solver.init(ldCSRMatrix, ldCSCMatrix, NUM_THREADS, 5);
+
   auto start = std::chrono::high_resolution_clock::now();
   for (unsigned i = 0; i < 5; i++) {
-    forwardSolve();
+    solver.forwardSolve(bVector, xVector);
   }
   auto end = std::chrono::high_resolution_clock::now();
   auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-  long long targetDuration = 2000000;
+  long long targetDuration = 4000000;
   int iters = targetDuration * 5 / duration;
   int roundedIters = ((iters / 10) + 1) * 10;
   return roundedIters;
 }
 
 void benchmark() {
-  method->init(ldCSRMatrix, ldCSCMatrix, NUM_THREADS);
+  int iters = findNumIterations();
+  method->init(ldCSRMatrix, ldCSCMatrix, NUM_THREADS, iters);
 
-  forwardSolve();
+  method->forwardSolve(bVector, xVector);
   validateResult();
   
-  int iters = findNumIterations();
   Profiler::recordTime("SpTRSV", iters, [iters]() {
     for (unsigned i = 0; i < iters; i++) {
-      forwardSolve();
+      method->forwardSolve(bVector, xVector);
     }
   });
   Profiler::print();
