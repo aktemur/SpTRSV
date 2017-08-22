@@ -2,9 +2,11 @@
 #include "docopt.h"
 #include "matrix.h"
 #include "method.h"
+#include <stdlib.h>
 #include <cmath>
 #include <iostream>
 #include <chrono>
+#include <algorithm>
 #ifdef OPENMP_EXISTS
 #include "omp.h"
 #endif
@@ -18,11 +20,17 @@ CSRMatrix *ldCSRMatrix;
 SparseTriangularSolver *method;
 double *bVector;
 double *xVector;
+double *yVector;
 double *xVectorReference;
 
 bool DEBUG_MODE_ON;
 int NUM_THREADS;
 int ITERS;
+
+// allocate a large buffer to flush out cache
+static const size_t LLC_CAPACITY = 32*1024*1024;
+static const double *bufToFlushLlc = NULL;
+
 
 //----------------------------------------------------------
 void parseCommandLineOptions(int argc, const char *argv[]);
@@ -30,6 +38,7 @@ void initializeThreads();
 void loadMatrix();
 void populateVectors();
 void benchmark();
+void flushLLC();
 
 int main(int argc, const char *argv[]) {
   parseCommandLineOptions(argc, argv);
@@ -136,14 +145,14 @@ void loadMatrix() {
 
 void populateVectors() {
   int N = ldCSCMatrix->N;
-  int M = ldCSCMatrix->M;
-  xVector = new double[M];
-  xVectorReference = new double[M];
+  xVector = new double[N];
+  yVector = new double[N];
+  xVectorReference = new double[N];
   bVector = new double[N];
   
   // Initialize the input vector
-  for (int j = 0; j < M; j++) {
-    xVectorReference[j] = M + 2 - j;
+  for (int j = 0; j < N; j++) {
+    xVectorReference[j] = N + 2 - j;
   }
   
   // Multiply x with the matrix to obtain b.
@@ -162,9 +171,9 @@ void populateVectors() {
 }
 
 void validateResult() {
-  int M = ldCSCMatrix->M;
+  int N = ldCSCMatrix->N;
   
-  for (int j = 0; j < M; j++) {
+  for (int j = 0; j < N; j++) {
     double diff = xVectorReference[j] - xVector[j];
     if (abs(diff) > 0.00001) {
       cerr << "OOPS!! Vectors different at index "
@@ -196,6 +205,7 @@ int findNumIterations() {
 }
 
 void benchmark() {
+  bufToFlushLlc = (double *)aligned_alloc(64, LLC_CAPACITY);
   int iters = findNumIterations();
   if (DEBUG_MODE_ON) {
     cout << "ITERS: " << iters << "\n";
@@ -206,11 +216,34 @@ void benchmark() {
   if (DEBUG_MODE_ON) {
     validateResult();
   }
+
+  long long *forwardDurations = new long long[iters];
+  long long *backwardDurations = new long long[iters];
   
-  Profiler::recordTime("SpTRSV", iters, [iters]() {
-    for (unsigned i = 0; i < iters; i++) {
-      method->forwardSolve(bVector, xVector);
-    }
-  });
-  Profiler::print();
+  for (unsigned i = 0; i < iters; i++) {
+    flushLLC();
+    auto t_0 = std::chrono::high_resolution_clock::now();
+    method->forwardSolve(bVector, yVector);
+    auto t_1 = std::chrono::high_resolution_clock::now();
+    auto delta_1 = std::chrono::duration_cast<std::chrono::microseconds>(t_1 - t_0).count();
+    forwardDurations[i] = delta_1;
+  }
+  sort(forwardDurations, forwardDurations + iters);
+  for (int i = 0; i < iters; i++) {
+    printf("%ld\n", forwardDurations[i]);
+  }
+  long long forwardDuration = forwardDurations[iters/2];
+  printf("SpTRSVduration: %ld\n", forwardDuration);
+}
+
+void flushLLC()
+{
+  double sum = 0;
+#pragma omp parallel for reduction(+:sum)
+  for (size_t i = 0; i < LLC_CAPACITY/sizeof(bufToFlushLlc[0]); ++i) {
+    sum += bufToFlushLlc[i];
+  }
+  FILE *fp = fopen("/dev/null", "w");
+  fprintf(fp, "%f\n", sum);
+  fclose(fp);
 }
