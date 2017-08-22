@@ -6,83 +6,148 @@ using namespace std;
 
 #ifdef MKL_EXISTS
 
-void MKLSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads, int iters) {
+void MKLSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+                     CSRMatrix *udcsr, CSCMatrix *udcsc, int numThreads, int iters) {
   mkl_set_num_threads_local(numThreads);
-  csrMatrix = csr;
-  cscMatrix = csc;
+  ldcsrMatrix = ldcsr;
+  ldcscMatrix = ldcsc;
+  udcsrMatrix = udcsr;
+  udcscMatrix = udcsc;
 }
 
-void MKLInspectorExecutorSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads, int iters) {
+void MKLInspectorExecutorSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+                                      CSRMatrix *udcsr, CSCMatrix *udcsc, int numThreads, int iters) {
   mkl_set_num_threads_local(numThreads);
   sparse_status_t stat;
   
-  mklL = createMKLMatrix(csr, csc);
+  createMKLMatrices(ldcsr, ldcsc, udcsr, udcsc);
   
+  stat = mkl_sparse_set_sv_hint(mklL, SPARSE_OPERATION_NON_TRANSPOSE, descL, iters);
+  if (SPARSE_STATUS_SUCCESS != stat) {
+    cerr << "Failed to set mklL sv hint. Error code: " << stat << "\n";
+    exit(1);
+  }
+  stat = mkl_sparse_optimize(mklL);
+  if (SPARSE_STATUS_SUCCESS != stat) {
+    cerr << "Failed to sparse optimize mklL. Error code: " << stat << "\n";
+    exit(1);
+  }
+  stat = mkl_sparse_set_sv_hint(mklU, SPARSE_OPERATION_NON_TRANSPOSE, descU, iters);
+  if (SPARSE_STATUS_SUCCESS != stat) {
+    cerr << "Failed to set mklU sv hint. Error code: " << stat << "\n";
+    exit(1);
+  }
+  stat = mkl_sparse_optimize(mklU);
+  if (SPARSE_STATUS_SUCCESS != stat) {
+    cerr << "Failed to sparse optimize mklU. Error code: " << stat << "\n";
+    exit(1);
+  }
+}
+
+void MKLInspectorExecutorCSRSolver::createMKLMatrices(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+                                                      CSRMatrix *udcsr, CSCMatrix *udcsc) {
+  sparse_status_t stat;
+  stat = mkl_sparse_d_create_csr(&mklL,
+                                 SPARSE_INDEX_BASE_ZERO, ldcsr->N, ldcsr->M,
+                                 ldcsr->rowPtr, ldcsr->rowPtr + 1,
+                                 ldcsr->colIndices, ldcsr->values);
+  if (SPARSE_STATUS_SUCCESS != stat) {
+    cerr << "Failed to create mklL CSR matrix. Error code: " << stat << "\n";
+    exit(1);
+  }
   descL.type = SPARSE_MATRIX_TYPE_TRIANGULAR;
   descL.mode = SPARSE_FILL_MODE_LOWER;
   descL.diag = SPARSE_DIAG_NON_UNIT;
   
-  stat = mkl_sparse_set_sv_hint(mklL, SPARSE_OPERATION_NON_TRANSPOSE, descL, iters);
+  stat = mkl_sparse_d_create_csc(&mklU,
+                                 SPARSE_INDEX_BASE_ZERO, udcsr->N, udcsr->M,
+                                 udcsr->rowPtr, udcsr->rowPtr + 1,
+                                 udcsr->colIndices, udcsr->values);
   if (SPARSE_STATUS_SUCCESS != stat) {
-    cerr << "Failed to set MKL sv hint. Error code: " << stat << "\n";
+    cerr << "Failed to create mklU CSR matrix. Error code: " << stat << "\n";
     exit(1);
   }
-  
-  stat = mkl_sparse_optimize(mklL);
-  if (SPARSE_STATUS_SUCCESS != stat) {
-    cerr << "Failed to sparse optimize. Error code: " << stat << "\n";
-    exit(1);
-  }
+  descU.type = SPARSE_MATRIX_TYPE_TRIANGULAR;
+  descU.mode = SPARSE_FILL_MODE_UPPER;
+  descU.diag = SPARSE_DIAG_NON_UNIT;
 }
 
-sparse_matrix_t MKLInspectorExecutorCSRSolver::createMKLMatrix(CSRMatrix *csr, CSCMatrix *csc) {
-  sparse_matrix_t mklA;
-  sparse_status_t stat = mkl_sparse_d_create_csr(&mklA,
-                                                 SPARSE_INDEX_BASE_ZERO, csr->N, csr->M,
-                                                 csr->rowPtr, csr->rowPtr + 1,
-                                                 csr->colIndices, csr->values);
+void MKLInspectorExecutorCSCSolver::createMKLMatrices(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+                                                      CSRMatrix *udcsr, CSCMatrix *udcsc) {
+  sparse_status_t stat;
+  stat = mkl_sparse_d_create_csc(&mklL,
+                                 SPARSE_INDEX_BASE_ZERO, ldcsc->N, ldcsc->M,
+                                 ldcsc->colPtr, ldcsc->colPtr + 1,
+                                 ldcsc->rowIndices, ldcsc->values);
   if (SPARSE_STATUS_SUCCESS != stat) {
-    cerr << "Failed to create MKL CSR matrix. Error code: " << stat << "\n";
+    cerr << "Failed to create mklL CSC matrix. Error code: " << stat << "\n";
     exit(1);
   }
-  return mklA;
-}
+  descL.type = SPARSE_MATRIX_TYPE_TRIANGULAR;
+  descL.mode = SPARSE_FILL_MODE_LOWER;
+  descL.diag = SPARSE_DIAG_NON_UNIT;
 
-sparse_matrix_t MKLInspectorExecutorCSCSolver::createMKLMatrix(CSRMatrix *csr, CSCMatrix *csc) {
-  sparse_matrix_t mklA;
-  sparse_status_t stat = mkl_sparse_d_create_csc(&mklA,
-                                                 SPARSE_INDEX_BASE_ZERO, csc->N, csc->M,
-                                                 csc->colPtr, csc->colPtr + 1,
-                                                 csc->rowIndices, csc->values);
+  stat = mkl_sparse_d_create_csc(&mklU,
+                                 SPARSE_INDEX_BASE_ZERO, udcsc->N, udcsc->M,
+                                 udcsc->colPtr, udcsc->colPtr + 1,
+                                 udcsc->rowIndices, udcsc->values);
   if (SPARSE_STATUS_SUCCESS != stat) {
-    cerr << "Failed to create MKL CSC matrix. Error code: " << stat << "\n";
+    cerr << "Failed to create mklU CSC matrix. Error code: " << stat << "\n";
     exit(1);
   }
-  return mklA;
+  descU.type = SPARSE_MATRIX_TYPE_TRIANGULAR;
+  descU.mode = SPARSE_FILL_MODE_UPPER;
+  descU.diag = SPARSE_DIAG_NON_UNIT;
 }
 
 void MKLCSRSolver::forwardSolve(double* __restrict b, double* __restrict x) {
   const char transa = 'n';
-  const int numColumns = csrMatrix->M;
+  const int numColumns = ldcsrMatrix->M;
   const double alpha = 1.0;
   const char matdescr[] = "TLNC__"; // Triangular, Lower, Non-unit diagonal, C-based indexing
-  const double *val = csrMatrix->values;
-  const int *indx = csrMatrix->colIndices;
-  const int *pntrb = csrMatrix->rowPtr;
-  const int *pntre = csrMatrix->rowPtr + 1;
+  const double *val = ldcsrMatrix->values;
+  const int *indx = ldcsrMatrix->colIndices;
+  const int *pntrb = ldcsrMatrix->rowPtr;
+  const int *pntre = ldcsrMatrix->rowPtr + 1;
   
   mkl_dcsrsv(&transa, &numColumns, &alpha, matdescr, val, indx, pntrb, pntre, b, x);
 }
 
 void MKLCSCSolver::forwardSolve(double* __restrict b, double* __restrict x) {
   const char transa = 'n';
-  const int numColumns = cscMatrix->M;
+  const int numColumns = ldcscMatrix->M;
   const double alpha = 1.0;
   const char matdescr[] = "TLNC__"; // Triangular, Lower, Non-unit diagonal, C-based indexing
-  const double *val = cscMatrix->values;
-  const int *indx = cscMatrix->rowIndices;
-  const int *pntrb = cscMatrix->colPtr;
-  const int *pntre = cscMatrix->colPtr + 1;
+  const double *val = ldcscMatrix->values;
+  const int *indx = ldcscMatrix->rowIndices;
+  const int *pntrb = ldcscMatrix->colPtr;
+  const int *pntre = ldcscMatrix->colPtr + 1;
+  
+  mkl_dcscsv(&transa, &numColumns, &alpha, matdescr, val, indx, pntrb, pntre, b, x);
+}
+
+void MKLCSRSolver::backwardSolve(double* __restrict b, double* __restrict x) {
+  const char transa = 'n';
+  const int numColumns = udcsrMatrix->M;
+  const double alpha = 1.0;
+  const char matdescr[] = "TUNC__"; // Triangular, Lower, Non-unit diagonal, C-based indexing
+  const double *val = udcsrMatrix->values;
+  const int *indx = udcsrMatrix->colIndices;
+  const int *pntrb = udcsrMatrix->rowPtr;
+  const int *pntre = udcsrMatrix->rowPtr + 1;
+  
+  mkl_dcsrsv(&transa, &numColumns, &alpha, matdescr, val, indx, pntrb, pntre, b, x);
+}
+
+void MKLCSCSolver::backwardSolve(double* __restrict b, double* __restrict x) {
+  const char transa = 'n';
+  const int numColumns = udcscMatrix->M;
+  const double alpha = 1.0;
+  const char matdescr[] = "TUNC__"; // Triangular, Lower, Non-unit diagonal, C-based indexing
+  const double *val = udcscMatrix->values;
+  const int *indx = udcscMatrix->rowIndices;
+  const int *pntrb = udcscMatrix->colPtr;
+  const int *pntre = udcscMatrix->colPtr + 1;
   
   mkl_dcscsv(&transa, &numColumns, &alpha, matdescr, val, indx, pntrb, pntre, b, x);
 }
@@ -90,7 +155,15 @@ void MKLCSCSolver::forwardSolve(double* __restrict b, double* __restrict x) {
 void MKLInspectorExecutorSolver::forwardSolve(double* __restrict b, double* __restrict x) {
   sparse_status_t stat = mkl_sparse_d_trsv(SPARSE_OPERATION_NON_TRANSPOSE, 1, mklL, descL, b, x);
   if (SPARSE_STATUS_SUCCESS != stat) {
-    cerr << "Failed to solve. Error code: " << stat << "\n";
+    cerr << "Failed to forward solve. Error code: " << stat << "\n";
+    exit(1);
+  }
+}
+
+void MKLInspectorExecutorSolver::backwardSolve(double* __restrict b, double* __restrict x) {
+  sparse_status_t stat = mkl_sparse_d_trsv(SPARSE_OPERATION_NON_TRANSPOSE, 1, mklU, descU, b, x);
+  if (SPARSE_STATUS_SUCCESS != stat) {
+    cerr << "Failed to backward solve. Error code: " << stat << "\n";
     exit(1);
   }
 }

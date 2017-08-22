@@ -17,11 +17,14 @@ using namespace std;
 string filename;
 CSCMatrix *ldCSCMatrix;
 CSRMatrix *ldCSRMatrix;
+CSCMatrix *udCSCMatrix;
+CSRMatrix *udCSRMatrix;
 SparseTriangularSolver *method;
 double *bVector;
 double *xVector;
 double *yVector;
 double *xVectorReference;
+double *yVectorReference;
 
 bool DEBUG_MODE_ON;
 int NUM_THREADS;
@@ -137,17 +140,37 @@ void loadMatrix() {
   }
   
   MMMatrix *ldMatrix = mmMatrix->getLD();
+  MMMatrix *udMatrix = mmMatrix->getUD();
   delete mmMatrix;
   ldCSCMatrix = ldMatrix->toCSC();
   ldCSRMatrix = ldMatrix->toCSR();
+  udCSCMatrix = udMatrix->toCSC();
+  udCSRMatrix = udMatrix->toCSR();
   delete ldMatrix;
+  delete udMatrix;
+}
+
+void spmvCSR(const CSRMatrix *csr, const double *v, double *w) {
+  int N = csr->N;
+  int *rowPtr = csr->rowPtr;
+  int *cols = csr->colIndices;
+  double *vals = csr->values;
+  
+  for (int i = 0; i < N; i++) {
+    double sum = 0.0;
+    for (int k = rowPtr[i]; k < rowPtr[i+1]; k++) {
+      sum += vals[k] * v[cols[k]];
+    }
+    w[i] = sum;
+  }
 }
 
 void populateVectors() {
-  int N = ldCSCMatrix->N;
+  int N = ldCSRMatrix->N;
   xVector = new double[N];
   yVector = new double[N];
   xVectorReference = new double[N];
+  yVectorReference = new double[N];
   bVector = new double[N];
   
   // Initialize the input vector
@@ -155,29 +178,26 @@ void populateVectors() {
     xVectorReference[j] = N + 2 - j;
   }
   
-  // Multiply x with the matrix to obtain b.
-  // This is a standard SpMV operation.
-  int *rowPtr = ldCSRMatrix->rowPtr;
-  int *cols = ldCSRMatrix->colIndices;
-  double *vals = ldCSRMatrix->values;
-  
-  for (int i = 0; i < N; i++) {
-    double sum = 0.0;
-    for (int k = rowPtr[i]; k < rowPtr[i+1]; k++) {
-      sum += vals[k] * xVectorReference[cols[k]];
-    }
-    bVector[i] = sum;
-  }
+  // Perform the following multiplications to obtain vector b.
+  // Ux = y and Ly = b (i.e. L(Ux) = b)
+  // These are two standard SpMV operations.
+  spmvCSR(udCSRMatrix, xVectorReference, yVectorReference);
+  spmvCSR(ldCSRMatrix, yVectorReference, bVector);
 }
 
 void validateResult() {
-  int N = ldCSCMatrix->N;
+  int N = ldCSRMatrix->N;
   
   for (int j = 0; j < N; j++) {
-    double diff = xVectorReference[j] - xVector[j];
-    if (abs(diff) > 0.00001) {
-      cerr << "OOPS!! Vectors different at index "
+    double diffx = xVectorReference[j] - xVector[j];
+    if (abs(diffx) > 0.00001) {
+      cerr << "OOPS!! xVectors different at index "
            << j << ": " << xVectorReference[j] << " vs " << xVector[j] << "\n";
+    }
+    double diffy = yVectorReference[j] - yVector[j];
+    if (abs(diffy) > 0.00001) {
+      cerr << "OOPS!! yVectors different at index "
+      << j << ": " << yVectorReference[j] << " vs " << yVector[j] << "\n";
     }
   }
 }
@@ -191,14 +211,19 @@ int findNumIterations() {
 }
 
 void benchmark() {
-  bufToFlushLlc = (double *)aligned_alloc(64, LLC_CAPACITY);
+  if (posix_memalign((void**)&bufToFlushLlc, 64, LLC_CAPACITY) != 0) {
+    cerr << "Problem occured in posix_memalign.\n";
+    exit(1);
+  }
+
   int iters = findNumIterations();
   if (DEBUG_MODE_ON) {
     cout << "ITERS: " << iters << "\n";
   }
-  method->init(ldCSRMatrix, ldCSCMatrix, NUM_THREADS, iters);
+  method->init(ldCSRMatrix, ldCSCMatrix, udCSRMatrix, udCSCMatrix, NUM_THREADS, iters);
 
-  method->forwardSolve(bVector, xVector);
+  method->forwardSolve(bVector, yVector);
+  method->backwardSolve(yVector, xVector);
   if (DEBUG_MODE_ON) {
     validateResult();
   }
@@ -211,15 +236,20 @@ void benchmark() {
     auto t_0 = std::chrono::high_resolution_clock::now();
     method->forwardSolve(bVector, yVector);
     auto t_1 = std::chrono::high_resolution_clock::now();
+    method->backwardSolve(yVector, xVector);
+    auto t_2 = std::chrono::high_resolution_clock::now();
+
     auto delta_1 = std::chrono::duration_cast<std::chrono::microseconds>(t_1 - t_0).count();
     forwardDurations[i] = delta_1;
+    auto delta_2 = std::chrono::duration_cast<std::chrono::microseconds>(t_2 - t_1).count();
+    backwardDurations[i] = delta_2;
   }
   sort(forwardDurations, forwardDurations + iters);
-  for (int i = 0; i < iters; i++) {
-    printf("%ld\n", forwardDurations[i]);
-  }
   long long forwardDuration = forwardDurations[iters/2];
-  printf("SpTRSVduration: %ld\n", forwardDuration);
+  printf("Fwd_solve: %lld\n", forwardDuration);
+  sort(backwardDurations, backwardDurations + iters);
+  long long backwardDuration = backwardDurations[iters/2];
+  printf("Bwd_solve: %lld\n", backwardDuration);
 }
 
 void flushLLC()

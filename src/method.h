@@ -11,60 +11,84 @@
 namespace thundercat {
   class SparseTriangularSolver {
   public:
-    virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads, int iters) = 0;
+    virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
+                      CSRMatrix* udcsr, CSCMatrix* udcsc,
+                      int numThreads, int iters) = 0;
 
     // Solve for x in Ax=b where A is a lower triangular matrix
     // with a full diagonal. The matrix A should be set beforehand using the init method.
     // This is because some methods prefer CSR format while others like CSC.
     virtual void forwardSolve(double* __restrict b, double* __restrict x) = 0;
-    
+
+    virtual void backwardSolve(double* __restrict b, double* __restrict x) = 0;
+
     virtual std::string getName() = 0;
   };
   
   class SequentialCSRSolver: public SparseTriangularSolver {
   public:
-    virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads, int iters);
+    virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
+                      CSRMatrix* udcsr, CSCMatrix* udcsc,
+                      int numThreads, int iters);
     
     virtual void forwardSolve(double* __restrict b, double* __restrict x);
-    
+
+    virtual void backwardSolve(double* __restrict b, double* __restrict x);
+
     virtual std::string getName();
     
   private:
-    CSRMatrix *csrMatrix;
+    CSRMatrix *ldcsrMatrix;
+    CSRMatrix *udcsrMatrix;
   };
 
   class SequentialCSCSolver: public SparseTriangularSolver {
   public:
-    virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads, int iters);
+    virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
+                      CSRMatrix* udcsr, CSCMatrix* udcsc,
+                      int numThreads, int iters);
 
     virtual void forwardSolve(double* __restrict b, double* __restrict x);
 
+    virtual void backwardSolve(double* __restrict b, double* __restrict x);
+    
     virtual std::string getName();
 
   private:
-    CSCMatrix *cscMatrix;
+    CSCMatrix *ldcscMatrix;
+    CSCMatrix *udcscMatrix;
   };
 
   class EuroPar16Solver: public SparseTriangularSolver {
   public:
-    virtual void init(CSRMatrix* csr, CSCMatrix* csc, int numThreads, int iters);
+    virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
+                      CSRMatrix* udcsr, CSCMatrix* udcsc,
+                      int numThreads, int iters);
     
     virtual void forwardSolve(double* __restrict b, double* __restrict x);
+    
+    virtual void backwardSolve(double* __restrict b, double* __restrict x);
     
     virtual std::string getName();
     
   private:
-    CSCMatrix *cscMatrix;
-    int *rowLengths;
+    CSCMatrix *ldcscMatrix;
+    CSCMatrix *udcscMatrix;
+    int *ldrowLengths;
+    int *udrowLengths;
   };
 
   class MKLSolver: public SparseTriangularSolver {
   public:
-    virtual void init(CSRMatrix* csr, CSCMatrix *csc, int numThreads, int iters);
+    virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
+                      CSRMatrix* udcsr, CSCMatrix* udcsc,
+                      int numThreads, int iters);
     
   protected:
-    CSRMatrix *csrMatrix;
-    CSCMatrix *cscMatrix;
+    CSRMatrix *ldcsrMatrix;
+    CSCMatrix *ldcscMatrix;
+    CSRMatrix *udcsrMatrix;
+    CSCMatrix *udcscMatrix;
   };
 
   class MKLCSRSolver: public MKLSolver {
@@ -72,6 +96,8 @@ namespace thundercat {
     virtual std::string getName();
     
     virtual void forwardSolve(double* __restrict b, double* __restrict x);
+
+    virtual void backwardSolve(double* __restrict b, double* __restrict x);
   };
 
   class MKLCSCSolver: public MKLSolver {
@@ -79,21 +105,29 @@ namespace thundercat {
     virtual std::string getName();
     
     virtual void forwardSolve(double* __restrict b, double* __restrict x);
+    
+    virtual void backwardSolve(double* __restrict b, double* __restrict x);
   };
 
   class MKLInspectorExecutorSolver: public SparseTriangularSolver {
   public:
-    virtual void init(CSRMatrix* csr, CSCMatrix *csc, int numThreads, int iters);
+    virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
+                      CSRMatrix* udcsr, CSCMatrix* udcsc,
+                      int numThreads, int iters);
 
     virtual void forwardSolve(double* __restrict b, double* __restrict x);
-
+    
+    virtual void backwardSolve(double* __restrict b, double* __restrict x);
 #ifdef MKL_EXISTS
   protected:
-    virtual sparse_matrix_t createMKLMatrix(CSRMatrix* csr, CSCMatrix *csc) = 0;
+    virtual void createMKLMatrices(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+                                   CSRMatrix *udcsr, CSCMatrix *udcsc) = 0;
     
-  private:
+  protected:
     sparse_matrix_t mklL;
     matrix_descr descL;
+    sparse_matrix_t mklU;
+    matrix_descr descU;
 #endif
   };
   
@@ -103,7 +137,8 @@ namespace thundercat {
     
 #ifdef MKL_EXISTS
   protected:
-    virtual sparse_matrix_t createMKLMatrix(CSRMatrix* csr, CSCMatrix *csc);
+    virtual void createMKLMatrices(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+                                   CSRMatrix *udcsr, CSCMatrix *udcsc);
 #endif
   };
 
@@ -113,7 +148,8 @@ namespace thundercat {
     
 #ifdef MKL_EXISTS
   protected:
-    virtual sparse_matrix_t createMKLMatrix(CSRMatrix* csr, CSCMatrix *csc);
+    virtual void createMKLMatrices(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+                                   CSRMatrix *udcsr, CSCMatrix *udcsc);
 #endif
   };
 }
