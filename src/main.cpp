@@ -187,21 +187,7 @@ int findNumIterations() {
     // Iterations specified as a command line argument
     return ITERS;
   }
-  // Find iteration count so that total execution with
-  // the reference implementation will be about 4 secs.
-  SequentialCSRSolver solver;
-  solver.init(ldCSRMatrix, ldCSCMatrix, NUM_THREADS, 5);
-
-  auto start = std::chrono::high_resolution_clock::now();
-  for (unsigned i = 0; i < 5; i++) {
-    solver.forwardSolve(bVector, xVector);
-  }
-  auto end = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-  long long targetDuration = 4000000;
-  int iters = targetDuration * 5 / duration;
-  int roundedIters = ((iters / 10) + 1) * 10;
-  return roundedIters;
+  return 128;
 }
 
 void benchmark() {
