@@ -59,7 +59,7 @@ void MKLInspectorExecutorCSRSolver::createMKLMatrices(CSRMatrix *ldcsr, CSCMatri
   descL.mode = SPARSE_FILL_MODE_LOWER;
   descL.diag = SPARSE_DIAG_NON_UNIT;
   
-  stat = mkl_sparse_d_create_csc(&mklU,
+  stat = mkl_sparse_d_create_csr(&mklU,
                                  SPARSE_INDEX_BASE_ZERO, udcsr->N, udcsr->M,
                                  udcsr->rowPtr, udcsr->rowPtr + 1,
                                  udcsr->colIndices, udcsr->values);
