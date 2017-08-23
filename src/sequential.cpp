@@ -29,6 +29,18 @@ void SequentialCSRSolver::forwardSolve(double* __restrict b, double* __restrict 
   }
 }
 
+void SequentialCSRSolver::backwardSolve(double* __restrict b, double* __restrict x) {
+  for (int i = udcsrMatrix->N - 1; i >= 0; i--) {
+    double sum = 0.0;
+    int k;
+    for (k = udcsrMatrix->rowPtr[i+1] - 1; k > udcsrMatrix->rowPtr[i]; k--) {
+      int col = udcsrMatrix->colIndices[k];
+      sum += udcsrMatrix->values[k] * x[col];
+    }
+    x[i] = (b[i] - sum) / udcsrMatrix->values[k];
+  }
+}
+
 void SequentialCSCSolver::forwardSolve(double* __restrict b, double* __restrict x) {
   double *leftsum = new double[ldcscMatrix->M];
   memset(leftsum, 0, sizeof(double) * ldcscMatrix->M);
@@ -42,11 +54,6 @@ void SequentialCSCSolver::forwardSolve(double* __restrict b, double* __restrict 
   }
   
   delete[] leftsum;
-}
-
-void SequentialCSRSolver::backwardSolve(double* __restrict b, double* __restrict x) {
-  cerr << "SequentialCSRSolver::backwardSolve not implemented yet.\n";
-  exit(1);
 }
 
 void SequentialCSCSolver::backwardSolve(double* __restrict b, double* __restrict x) {
