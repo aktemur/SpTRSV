@@ -56,7 +56,7 @@ void EuroPar16Solver::forwardSolve(double* __restrict b, double* __restrict x) {
     
     double xj = (b[j] - leftsum[j]) / values[colPtr[j]];
     x[j] = xj;
-    for (int k = colPtr[j] + 1; k < ldcscMatrix->colPtr[j+1]; k++) {
+    for (int k = colPtr[j] + 1; k < colPtr[j+1]; k++) {
       int row = rowIndices[k];
       double mult = values[k] * xj;
       double desired, expected;
@@ -73,8 +73,40 @@ void EuroPar16Solver::forwardSolve(double* __restrict b, double* __restrict x) {
 }
 
 void EuroPar16Solver::backwardSolve(double* __restrict b, double* __restrict x) {
-  cerr << "EuroPar16Solver::backwardSolve not implemented yet.\n";
-  exit(1);
+  int N = udcscMatrix->N;
+  atomic<double> *rightsum = new atomic<double>[N];
+  atomic<int> *knownVars = new atomic<int>[N];
+  for (int i = 0; i < N; i++) {
+    atomic_init(&(rightsum[i]), 0.0);
+    atomic_init(&(knownVars[i]), 0);
+  }
+  int *colPtr = udcscMatrix->colPtr;
+  int *rowIndices = udcscMatrix->rowIndices;
+  double *values = udcscMatrix->values;
+  
+#pragma omp parallel for
+  for (int j = N - 1; j >= 0; j--) {
+    int rowLength = udrowLengths[j] - 1;
+    while (rowLength != knownVars[j]) {
+      // spin-wait for all the vars on this row to become known
+    }
+    
+    double xj = (b[j] - rightsum[j]) / values[colPtr[j+1]-1];
+    x[j] = xj;
+    for (int k = colPtr[j+1] - 1 - 1; k >= colPtr[j]; k--) {
+      int row = rowIndices[k];
+      double mult = values[k] * xj;
+      double desired, expected;
+      do {
+        expected = rightsum[row].load();
+        desired = expected + mult;
+      } while (!rightsum[row].compare_exchange_weak(expected, desired));
+      knownVars[row]++;
+    }
+  }
+  
+  delete[] rightsum;
+  delete[] knownVars;
 }
 
 string EuroPar16Solver::getName() {
