@@ -190,12 +190,12 @@ void validateResult() {
   
   for (int j = 0; j < N; j++) {
     double diffx = xVectorReference[j] - xVector[j];
-    if (abs(diffx) > 0.00001) {
+    if (fabs(diffx)/fabs(xVectorReference[j]) > 0.00001) {
       cerr << "OOPS!! xVectors different at index "
            << j << ": " << xVectorReference[j] << " vs " << xVector[j] << "\n";
     }
     double diffy = yVectorReference[j] - yVector[j];
-    if (abs(diffy) > 0.00001) {
+    if (fabs(diffy)/fabs(yVectorReference[j]) > 0.00001) {
       cerr << "OOPS!! yVectors different at index "
       << j << ": " << yVectorReference[j] << " vs " << yVector[j] << "\n";
     }
