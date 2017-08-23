@@ -142,6 +142,8 @@ namespace thundercat {
 #endif
   };
 
+  // NOTE: This method fails at the mkl_sparse_set_sv_hint step
+  // by giving error code 6. We still keep it for completeness.
   class MKLInspectorExecutorCSCSolver: public MKLInspectorExecutorSolver {
   public:
     virtual std::string getName();
