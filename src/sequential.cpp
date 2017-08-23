@@ -57,8 +57,18 @@ void SequentialCSCSolver::forwardSolve(double* __restrict b, double* __restrict 
 }
 
 void SequentialCSCSolver::backwardSolve(double* __restrict b, double* __restrict x) {
-  std::cerr << "SequentialCSRSolver::backwardSolve not implemented yet.\n";
-  exit(1);
+  double *rightsum = new double[udcscMatrix->M];
+  memset(rightsum, 0, sizeof(double) * udcscMatrix->M);
+  
+  for (int j = udcscMatrix->M - 1; j >= 0; j--) {
+    x[j] = (b[j] - rightsum[j]) / udcscMatrix->values[udcscMatrix->colPtr[j+1]-1];
+    for (int k = udcscMatrix->colPtr[j+1] - 1 - 1; k >= udcscMatrix->colPtr[j]; k--) {
+      int row = udcscMatrix->rowIndices[k];
+      rightsum[row] += udcscMatrix->values[k] * x[j];
+    }
+  }
+  
+  delete[] rightsum;
 }
 
 string SequentialCSRSolver::getName() {
