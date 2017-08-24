@@ -246,7 +246,7 @@ void benchmark() {
   }
   sort(forwardDurations, forwardDurations + iters);
   long long forwardDuration = forwardDurations[iters/2];
-  printf("Fwd_solve: %lld\n", forwardDuration);
+  printf("Fwd_solve: %lld ", forwardDuration);
   sort(backwardDurations, backwardDurations + iters);
   long long backwardDuration = backwardDurations[iters/2];
   printf("Bwd_solve: %lld\n", backwardDuration);

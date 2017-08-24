@@ -22,9 +22,8 @@ echo "Running SpTRSV test " $methodName $param1 $param2
 
 while read line
 do
-    IFS=' ' read -r -a info <<< "$line"
-    groupName=${info[0]}
-    matrixName=${info[1]}
+    groupName=$(dirname $line)
+    matrixName=$(basename $line)
 
     echo ----- "$groupName"/"$matrixName"
 

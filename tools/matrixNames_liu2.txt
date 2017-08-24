@@ -1,10 +1,10 @@
-Pajek Wordnet3
-Rajat rajat18
-Norris lung2
-IBM_EDA dc2
-SNAP soc-sign-epinions
-TSOPF TSOPF_RS_b162_c4
-SNAP cit-HepTh
-Rajat rajat25
-Averous epb3
-Hollinger g7jac140sc
+Pajek/Wordnet3
+Rajat/rajat18
+Norris/lung2
+IBM_EDA/dc2
+SNAP/soc-sign-epinions
+TSOPF/TSOPF_RS_b162_c4
+SNAP/cit-HepTh
+Rajat/rajat25
+Averous/epb3
+Hollinger/g7jac140sc
