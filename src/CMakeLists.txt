@@ -31,6 +31,7 @@ set(SOURCE_FILES
     mkl.cpp
     profiler.cpp
     sequential.cpp
+    parallel.cpp
 )
 
 set(HEADER_FILES

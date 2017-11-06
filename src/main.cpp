@@ -57,7 +57,7 @@ static const char USAGE[] =
 R"(OzU SRL SpTRSV.
 
   Usage:
-    sptrsv <mtxFile> (seqCSR | seqCSC | mklCSR | mklCSC | mklIECSR | mklIECSC | europar16) [--threads=<num>] [--debug] [--iters=<count>]
+    sptrsv <mtxFile> (parCSC | seqCSR | seqCSC | mklCSR | mklCSC | mklIECSR | mklIECSC | europar16) [--threads=<num>] [--debug] [--iters=<count>]
     sptrsv (-h | --help)
     sptrsv --version
 
@@ -87,6 +87,8 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
     method = new MKLInspectorExecutorCSRSolver;
   } else if (args["mklIECSC"].asBool()) {
     method = new MKLInspectorExecutorCSCSolver;
+  } else if (args["parCSC"].asBool()) {
+    method = new ParallelCSCSolver;
   } else if (args["europar16"].asBool()) {
     method = new EuroPar16Solver;
   } else {
