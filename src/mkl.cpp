@@ -170,12 +170,14 @@ void MKLInspectorExecutorSolver::backwardSolve(double* __restrict b, double* __r
 
 #else
 
-void MKLSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads) {
+void MKLSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+                     CSRMatrix *udcsr, CSCMatrix *udcsc, int numThreads, int iters) {
   cerr << "MKL is not supported on this platform.\n";
   exit(1);
 }
 
-void MKLInspectorExecutorSolver::init(CSRMatrix *csr, CSCMatrix *csc, int numThreads) {
+void MKLInspectorExecutorSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+                                      CSRMatrix *udcsr, CSCMatrix *udcsc, int numThreads, int iters) {
   cerr << "MKL is not supported on this platform.\n";
   exit(1);
 }
@@ -185,12 +187,27 @@ void MKLCSRSolver::forwardSolve(double* __restrict b, double* __restrict x) {
   exit(1);
 }
 
+void MKLCSRSolver::backwardSolve(double* __restrict b, double* __restrict x) {
+  cerr << "MKL is not supported on this platform.\n";
+  exit(1);
+}
+
 void MKLCSCSolver::forwardSolve(double* __restrict b, double* __restrict x) {
   cerr << "MKL is not supported on this platform.\n";
   exit(1);
 }
 
+void MKLCSCSolver::backwardSolve(double* __restrict b, double* __restrict x) {
+  cerr << "MKL is not supported on this platform.\n";
+  exit(1);
+}
+
 void MKLInspectorExecutorSolver::forwardSolve(double* __restrict b, double* __restrict x) {
+  cerr << "MKL is not supported on this platform.\n";
+  exit(1);
+}
+
+void MKLInspectorExecutorSolver::backwardSolve(double* __restrict b, double* __restrict x) {
   cerr << "MKL is not supported on this platform.\n";
   exit(1);
 }
