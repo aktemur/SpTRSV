@@ -4,6 +4,7 @@
 #include "matrix.h"
 #include <string>
 #include <atomic>
+#include <queue>
 
 #ifdef MKL_EXISTS
 #include <mkl.h>
@@ -62,6 +63,7 @@ namespace thundercat {
 
   class ParallelCSCSolver: public SparseTriangularSolver {
   public:
+      ParallelCSCSolver();
       virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
                         CSRMatrix* udcsr, CSCMatrix* udcsc,
                         int numThreads, int iters);
@@ -74,7 +76,9 @@ namespace thundercat {
 
   private:
       CSCMatrix *ldcscMatrix;
+      CSRMatrix *ldcsrMatrix;
       CSCMatrix *udcscMatrix;
+      std::queue<int> indexQueue;
   };
 
   class EuroPar16Solver: public SparseTriangularSolver {
