@@ -79,6 +79,7 @@ namespace thundercat {
       CSRMatrix *ldcsrMatrix;
       CSCMatrix *udcscMatrix;
       std::queue<int> indexQueue;
+      int *initialDependencies;
   };
 
   class EuroPar16Solver: public SparseTriangularSolver {

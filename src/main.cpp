@@ -245,8 +245,8 @@ void benchmark() {
     forwardDurations[i] = delta_1;
     auto delta_2 = std::chrono::duration_cast<std::chrono::microseconds>(t_2 - t_1).count();
     backwardDurations[i] = delta_2;
-    printf("Fwd_solve: %6lld \tBwd_solve: %6lld \tD: %6lld \tF/B: %6lld\n", delta_1, delta_2, delta_1 - delta_2, delta_1 / delta_2);
   }
+
   sort(forwardDurations, forwardDurations + iters);
   long long forwardDuration = forwardDurations[iters/2];
   printf("Fwd_solve: %lld ", forwardDuration);
