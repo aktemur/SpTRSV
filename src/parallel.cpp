@@ -1,7 +1,9 @@
 #include "method.h"
 #include <cstring>
 #include <iostream>
-#include <omp.h>
+#ifdef OPENMP_EXISTS
+#include "omp.h"
+#endif
 #include <string>
 #include <sstream>
 

@@ -26,6 +26,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${dir}")
 
 set(SOURCE_FILES
     europar16.cpp
+    experimental.cpp
     main.cpp
     method.cpp
     mkl.cpp
