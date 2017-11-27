@@ -57,7 +57,8 @@ static const char USAGE[] =
 R"(OzU SRL SpTRSV.
 
   Usage:
-    sptrsv <mtxFile> (parCSC | seqCSR | seqCSC | mklCSR | mklCSC | mklIECSR | mklIECSC | europar16 | experimental) [--threads=<num>] [--debug] [--iters=<count>]
+    sptrsv <mtxFile> (tbbCSC | ompCSC | camCSC | seqparCSC | seqCSR | seqCSC | mklCSR | mklCSC | mklIECSR | mklIECSC | europar16 | experimental)
+      [--threads=<num>] [--debug] [--iters=<count>]
     sptrsv (-h | --help)
     sptrsv --version
 
@@ -87,8 +88,14 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
     method = new MKLInspectorExecutorCSRSolver;
   } else if (args["mklIECSC"].asBool()) {
     method = new MKLInspectorExecutorCSCSolver;
-  } else if (args["parCSC"].asBool()) {
-    method = new ParallelCSCSolver();
+  } else if (args["tbbCSC"].asBool()) {
+    method = new TBBSolver();
+  } else if (args["ompCSC"].asBool()) {
+    method = new OmpStlSolver();
+  } else if (args["camCSC"].asBool()) {
+    method = new CameronSolver();
+  } else if (args["seqparCSC"].asBool()) {
+    method = new SeqParSolver();
   } else if (args["europar16"].asBool()) {
     method = new EuroPar16Solver;
   } else if (args["experimental"].asBool()) {

@@ -3,9 +3,9 @@
 
 #include "matrix.h"
 #include <string>
-#include <atomic>
+#include <tbb/concurrent_queue.h>
 #include <queue>
-
+#include "concurrentqueue.h"
 #ifdef MKL_EXISTS
 #include <mkl.h>
 #endif
@@ -63,37 +63,77 @@ namespace thundercat {
 
   class ParallelCSCSolver: public SparseTriangularSolver {
   public:
-      ParallelCSCSolver();
       virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
                         CSRMatrix* udcsr, CSCMatrix* udcsc,
                         int numThreads, int iters);
 
-      virtual void forwardSolve(double* __restrict b, double* __restrict x);
-
       virtual void backwardSolve(double* __restrict b, double* __restrict x);
 
-      virtual std::string getName();
-
-  private:
+  protected:
       CSCMatrix *ldcscMatrix;
       CSRMatrix *ldcsrMatrix;
       CSCMatrix *udcscMatrix;
-      std::queue<int> indexQueue;
-      int *initialDependencies;
+
+      int* initialDependencies;
+
   };
+
+  class TBBSolver: public ParallelCSCSolver {
+    public:
+        TBBSolver();
+
+        virtual void forwardSolve(double* __restrict b, double* __restrict x);
+
+        virtual std::string getName();
+
+      tbb::concurrent_queue<int> indexQueue;
+    };
+
+    class OmpStlSolver: public ParallelCSCSolver {
+    public:
+        OmpStlSolver();
+
+        virtual void forwardSolve(double* __restrict b, double* __restrict x);
+
+        virtual std::string getName();
+
+        std::queue<int> indexQueue;
+  };
+
+    class CameronSolver: public ParallelCSCSolver {
+    public:
+        CameronSolver();
+
+        virtual void forwardSolve(double* __restrict b, double* __restrict x);
+
+        virtual std::string getName();
+
+        moodycamel::ConcurrentQueue<int> indexQueue;
+    };
+
+    class SeqParSolver: public ParallelCSCSolver {
+    public:
+        SeqParSolver();
+
+        virtual void forwardSolve(double* __restrict b, double* __restrict x);
+
+        virtual std::string getName();
+
+       std::queue<int> indexQueue;
+    };
 
   class ExperimentalSolver: public SparseTriangularSolver {
   public:
     virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
                       CSRMatrix* udcsr, CSCMatrix* udcsc,
                       int numThreads, int iters);
-    
+
     virtual void forwardSolve(double* __restrict b, double* __restrict x);
-    
+
     virtual void backwardSolve(double* __restrict b, double* __restrict x);
-    
+
     virtual std::string getName();
-    
+
   private:
     CSRMatrix *ldcsrMatrix;
     CSCMatrix *ldcscMatrix;

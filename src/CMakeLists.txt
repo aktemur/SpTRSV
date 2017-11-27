@@ -111,4 +111,9 @@ if (OPENMP_FOUND)
   message(STATUS "Compiler flags (OMP): " ${CMAKE_CXX_FLAGS})
 endif()
 
+##
+## Intel TBB
+##
+find_package(TBB)
+target_link_libraries(sptrsv tbb)
 
