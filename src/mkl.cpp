@@ -6,9 +6,22 @@ using namespace std;
 
 #ifdef MKL_EXISTS
 
-void MKLSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
-                     CSRMatrix *udcsr, CSCMatrix *udcsc, int numThreads, int iters) {
+extern bool DEBUG_MODE_ON;
+
+void MKLSolver::initThreads(int numThreads) {
   mkl_set_num_threads_local(numThreads);
+  if (DEBUG_MODE_ON)
+    cout << "NumThreads: " << mkl_get_max_threads() << "\n";
+}
+
+void MKLInspectorExecutorSolver::initThreads(int numThreads) {
+  mkl_set_num_threads_local(numThreads);
+  if (DEBUG_MODE_ON)
+    cout << "NumThreads: " << mkl_get_max_threads() << "\n";
+}
+
+void MKLSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+                     CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
   ldcsrMatrix = ldcsr;
   ldcscMatrix = ldcsc;
   udcsrMatrix = udcsr;
@@ -16,8 +29,7 @@ void MKLSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
 }
 
 void MKLInspectorExecutorSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
-                                      CSRMatrix *udcsr, CSCMatrix *udcsc, int numThreads, int iters) {
-  mkl_set_num_threads_local(numThreads);
+                                      CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
   sparse_status_t stat;
   
   createMKLMatrices(ldcsr, ldcsc, udcsr, udcsc);
@@ -130,7 +142,7 @@ void MKLCSRSolver::backwardSolve(double* __restrict b, double* __restrict x) {
   const char transa = 'n';
   const int numColumns = udcsrMatrix->M;
   const double alpha = 1.0;
-  const char matdescr[] = "TUNC__"; // Triangular, Lower, Non-unit diagonal, C-based indexing
+  const char matdescr[] = "TUNC__"; // Triangular, Upper, Non-unit diagonal, C-based indexing
   const double *val = udcsrMatrix->values;
   const int *indx = udcsrMatrix->colIndices;
   const int *pntrb = udcsrMatrix->rowPtr;
@@ -143,7 +155,7 @@ void MKLCSCSolver::backwardSolve(double* __restrict b, double* __restrict x) {
   const char transa = 'n';
   const int numColumns = udcscMatrix->M;
   const double alpha = 1.0;
-  const char matdescr[] = "TUNC__"; // Triangular, Lower, Non-unit diagonal, C-based indexing
+  const char matdescr[] = "TUNC__"; // Triangular, Upper, Non-unit diagonal, C-based indexing
   const double *val = udcscMatrix->values;
   const int *indx = udcscMatrix->rowIndices;
   const int *pntrb = udcscMatrix->colPtr;
@@ -170,14 +182,24 @@ void MKLInspectorExecutorSolver::backwardSolve(double* __restrict b, double* __r
 
 #else
 
+void MKLSolver::initThreads(int numThreads) {
+  cerr << "MKL is not supported on this platform.\n";
+  exit(1);
+}
+
+void MKLInspectorExecutorSolver::initThreads(int numThreads) {
+  cerr << "MKL is not supported on this platform.\n";
+  exit(1);
+}
+
 void MKLSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
-                     CSRMatrix *udcsr, CSCMatrix *udcsc, int numThreads, int iters) {
+                     CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
   cerr << "MKL is not supported on this platform.\n";
   exit(1);
 }
 
 void MKLInspectorExecutorSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
-                                      CSRMatrix *udcsr, CSCMatrix *udcsc, int numThreads, int iters) {
+                                      CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
   cerr << "MKL is not supported on this platform.\n";
   exit(1);
 }

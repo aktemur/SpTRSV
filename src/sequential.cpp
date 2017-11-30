@@ -6,13 +6,13 @@ using namespace thundercat;
 using namespace std;
 
 void SequentialCSRSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
-                               CSRMatrix *udcsr, CSCMatrix *udcsc, int numThreads, int iters) {
+                               CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
   ldcsrMatrix = ldcsr;
   udcsrMatrix = udcsr;
 }
 
 void SequentialCSCSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
-                               CSRMatrix *udcsr, CSCMatrix *udcsc, int numThreads, int iters) {
+                               CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
   ldcscMatrix = ldcsc;
   udcscMatrix = udcsc;
 }

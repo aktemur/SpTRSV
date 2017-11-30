@@ -124,19 +124,7 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
 }
 
 void initializeThreads() {
-#ifdef OPENMP_EXISTS
-  omp_set_num_threads(NUM_THREADS);
-  int nthreads = -1;
-#pragma omp parallel
-  {
-#pragma omp master
-    {
-      nthreads = omp_get_num_threads();
-    }
-  }
-  if (DEBUG_MODE_ON)
-    cout << "NumThreads: " << nthreads << "\n";
-#endif
+  method->initThreads(NUM_THREADS);
 }
 
 void loadMatrix() {
@@ -231,7 +219,7 @@ void benchmark() {
   if (DEBUG_MODE_ON) {
     cout << "ITERS: " << iters << "\n";
   }
-  method->init(ldCSRMatrix, ldCSCMatrix, udCSRMatrix, udCSCMatrix, NUM_THREADS, iters);
+  method->init(ldCSRMatrix, ldCSCMatrix, udCSRMatrix, udCSCMatrix, iters);
 
   method->forwardSolve(bVector, yVector);
   method->backwardSolve(yVector, xVector);

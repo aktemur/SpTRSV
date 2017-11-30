@@ -1,14 +1,16 @@
 #include "method.h"
 #include <cstring>
 #include <iostream>
-#include <omp.h>
+#ifdef OPENMP_EXISTS
+#include "omp.h"
+#endif
 #include <tbb/atomic.h>
 
 using namespace thundercat;
 using namespace std;
 
 void ParallelCSCSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
-                             CSRMatrix *udcsr, CSCMatrix *udcsc, int numThreads, int iters) {
+                             CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
   ldcscMatrix = ldcsc;
   ldcsrMatrix = ldcsr;
   udcscMatrix = udcsc;

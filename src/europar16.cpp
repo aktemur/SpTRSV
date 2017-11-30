@@ -17,7 +17,7 @@ using namespace std;
  */
 
 void EuroPar16Solver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
-                           CSRMatrix *udcsr, CSCMatrix *udcsc, int numThreads, int iters) {
+                           CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
   ldcscMatrix = ldcsc;
   udcscMatrix = udcsc;
   ldrowLengths = new int[ldcscMatrix->N];

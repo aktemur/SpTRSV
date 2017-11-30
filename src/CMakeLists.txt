@@ -114,6 +114,7 @@ endif()
 ##
 ## Intel TBB
 ##
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
 find_package(TBB)
 target_link_libraries(sptrsv tbb)
 
