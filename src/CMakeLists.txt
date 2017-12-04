@@ -118,3 +118,8 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
 find_package(TBB)
 target_link_libraries(sptrsv tbb)
 
+##
+## Boost
+##
+find_package(Boost)
+include_directories(${Boost_INCLUDE_DIR})

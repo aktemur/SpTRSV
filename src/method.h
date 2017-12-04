@@ -5,10 +5,12 @@
 #include <string>
 #include <tbb/concurrent_queue.h>
 #include <queue>
+#include <deque>
 #include "concurrentqueue.h"
 #ifdef MKL_EXISTS
 #include <mkl.h>
 #endif
+#include <boost/lockfree/queue.hpp>
 
 namespace thundercat {
   class SparseTriangularSolver {
@@ -79,15 +81,34 @@ namespace thundercat {
 
   };
 
-  class TBBSolver: public ParallelCSCSolver {
+  class BoostSolver: public ParallelCSCSolver {
+  public:
+    BoostSolver();
+    
+    virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
+		      CSRMatrix* udcsr, CSCMatrix* udcsc,
+		      int iters);
+    
+    virtual void forwardSolve(double* __restrict b, double* __restrict x);
+    
+    virtual std::string getName();
+    
+    boost::lockfree::queue<int> *indexQueue;
+  };
+  
+    class TBBSolver: public ParallelCSCSolver {
     public:
         TBBSolver();
 
-        virtual void forwardSolve(double* __restrict b, double* __restrict x);
+        virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
+                          CSRMatrix* udcsr, CSCMatrix* udcsc,
+                          int iters);
+
+	virtual void forwardSolve(double* __restrict b, double* __restrict x);
 
         virtual std::string getName();
 
-        tbb::concurrent_queue<int> indexQueue;
+        tbb::concurrent_bounded_queue<int> indexQueue;
     };
 
     class OmpStlSolver: public ParallelCSCSolver {
@@ -105,11 +126,15 @@ namespace thundercat {
     public:
         CameronSolver();
 
+        virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
+                          CSRMatrix* udcsr, CSCMatrix* udcsc,
+                          int iters);
         virtual void forwardSolve(double* __restrict b, double* __restrict x);
 
         virtual std::string getName();
 
         moodycamel::ConcurrentQueue<int> indexQueue;
+	tbb::atomic<int> *dependencies;
     };
 
     class SeqParSolver: public ParallelCSCSolver {
@@ -140,7 +165,8 @@ namespace thundercat {
     CSCMatrix *ldcscMatrix;
     CSRMatrix *udcsrMatrix;
     CSCMatrix *udcscMatrix;
-    int *ldrowLengths;
+    int *unknownVars;
+    std::vector<std::deque<int> > rowsToSolve;
   };
 
   class EuroPar16Solver: public SparseTriangularSolver {

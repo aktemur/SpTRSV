@@ -19,7 +19,6 @@ void ParallelCSCSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
   for (int i = 0; i < ldcscMatrix->M; i++) {
     initialDependencies[i] = (ldcsrMatrix->rowPtr[i + 1] - ldcsrMatrix->rowPtr[i]) - 1;
   }
-
 }
 
 void ParallelCSCSolver::backwardSolve(double *__restrict b, double *__restrict x) {
@@ -38,9 +37,75 @@ void ParallelCSCSolver::backwardSolve(double *__restrict b, double *__restrict x
 
 
 /**
+ * CSC Solver with Boost's lock-free queue
+ */
+BoostSolver::BoostSolver():indexQueue() {}
+
+void BoostSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+		       CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
+  ParallelCSCSolver::init(ldcsr, ldcsc, udcsr, udcsc, iters);
+  indexQueue = new boost::lockfree::queue<int>(ldcsc->M);
+}
+
+void BoostSolver::forwardSolve(double *__restrict b, double *__restrict x) {
+
+  tbb::atomic<int> solved;
+  solved = 0;
+  tbb::atomic<int> *dependencies = new tbb::atomic<int>[ldcscMatrix->M];
+
+  #pragma omp parallel for
+  for (int i = 0; i < ldcscMatrix->M; i++) {
+    dependencies[i] = initialDependencies[i];
+    if (initialDependencies[i] == 0) {
+      indexQueue->push(i);
+    }
+  }
+  /*
+  #pragma omp parallel
+  {
+  while (solved < ldcscMatrix->M) {
+
+    int solve_index = -1;
+
+    if (indexQueue.try_pop(solve_index)) {
+      solved++;
+      double leftSum = 0.0;
+      int j = ldcsrMatrix->rowPtr[solve_index];
+      for (; j < ldcsrMatrix->rowPtr[solve_index + 1] - 1; j++) {
+	int col = ldcsrMatrix->colIndices[j];
+        leftSum += x[col] * ldcsrMatrix->values[j];
+      }
+      x[solve_index] = (b[solve_index] - leftSum) / ldcsrMatrix->values[j];
+
+      for (int k = ldcscMatrix->colPtr[solve_index] + 1; k < ldcscMatrix->colPtr[solve_index + 1]; k++) {
+        int row = ldcscMatrix->rowIndices[k];
+        if (--(dependencies[row]) == 0) {
+          indexQueue.push(row);
+        }
+      }
+    }
+  }
+  }
+  */
+  delete[] dependencies;
+  delete indexQueue;
+  indexQueue = new boost::lockfree::queue<int>(ldcscMatrix->M);
+}
+
+string BoostSolver::getName() {
+  return "BoostSolver";
+}
+
+/**
  * CSC Solver with TBB synchronisation primitives
  */
 TBBSolver::TBBSolver():indexQueue() {}
+
+void TBBSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+                             CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
+  ParallelCSCSolver::init(ldcsr, ldcsc, udcsr, udcsc, iters);
+  indexQueue.set_capacity(ldcsc->M);
+}
 
 void TBBSolver::forwardSolve(double *__restrict b, double *__restrict x) {
 
@@ -55,37 +120,35 @@ void TBBSolver::forwardSolve(double *__restrict b, double *__restrict x) {
       indexQueue.push(i);
     }
   }
-
+  /*
   #pragma omp parallel
+  {
   while (solved < ldcscMatrix->M) {
 
     int solve_index = -1;
 
     if (indexQueue.try_pop(solve_index)) {
-
-      double componentSum = 0.0;
-      for (
-          int componentIndex = ldcsrMatrix->rowPtr[solve_index];
-          componentIndex < ldcsrMatrix->rowPtr[solve_index + 1] - 1;
-          componentIndex++) {
-        componentSum +=
-            x[ldcsrMatrix->colIndices[componentIndex]] * ldcsrMatrix->values[componentIndex];
-
+      solved++;
+      double leftSum = 0.0;
+      int j = ldcsrMatrix->rowPtr[solve_index];
+      for (; j < ldcsrMatrix->rowPtr[solve_index + 1] - 1; j++) {
+	int col = ldcsrMatrix->colIndices[j];
+        leftSum += x[col] * ldcsrMatrix->values[j];
       }
-      x[solve_index] = (b[solve_index] - componentSum) / ldcscMatrix->values[ldcscMatrix->colPtr[solve_index]];
+      x[solve_index] = (b[solve_index] - leftSum) / ldcsrMatrix->values[j];
 
-      for (int i = ldcscMatrix->colPtr[solve_index]; i < ldcscMatrix->colPtr[solve_index + 1]; i++) {
-        int row = ldcscMatrix->rowIndices[i];
-        int ready;
-        ready = --(dependencies[ldcscMatrix->rowIndices[i]]);
-        if (ready == 0) {
-          indexQueue.push(ldcscMatrix->rowIndices[i]);
+      for (int k = ldcscMatrix->colPtr[solve_index] + 1; k < ldcscMatrix->colPtr[solve_index + 1]; k++) {
+        int row = ldcscMatrix->rowIndices[k];
+        if (--(dependencies[row]) == 0) {
+          indexQueue.push(row);
         }
       }
-      solved += 1;
     }
   }
+  }
+  */
   delete[] dependencies;
+  indexQueue.clear();
 }
 
 string TBBSolver::getName() {
@@ -164,51 +227,51 @@ string OmpStlSolver::getName() {
  */
 CameronSolver::CameronSolver():indexQueue() {}
 
+void CameronSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
+                             CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
+  ParallelCSCSolver::init(ldcsr, ldcsc, udcsr, udcsc, iters);
+  dependencies = new tbb::atomic<int>[ldcscMatrix->M];
+}
+
+
 void CameronSolver::forwardSolve(double *__restrict b, double *__restrict x) {
 
-  int solved;
+  tbb::atomic<int> solved;
   solved = 0;
-  int *dependencies = new int[ldcscMatrix->M];
-  memcpy(dependencies, initialDependencies, sizeof(int) * ldcscMatrix->M);
 
   #pragma omp parallel for
   for (int i = 0; i < ldcscMatrix->M; i++) {
+    dependencies[i] = initialDependencies[i];
     if (initialDependencies[i] == 0) {
       indexQueue.enqueue(i);
     }
   }
 
   #pragma omp parallel
+  {
   while (solved < ldcscMatrix->M) {
 
     int solve_index = -1;
 
     if (indexQueue.try_dequeue(solve_index)) {
-      double componentSum = 0.0;
-      for (
-          int componentIndex = ldcsrMatrix->rowPtr[solve_index];
-          componentIndex < ldcsrMatrix->rowPtr[solve_index + 1] - 1;
-          componentIndex++) {
-        componentSum +=
-            x[ldcsrMatrix->colIndices[componentIndex]] * ldcsrMatrix->values[componentIndex];
-
+      solved++;
+      double leftSum = 0.0;
+      int j = ldcsrMatrix->rowPtr[solve_index];
+      for (; j < ldcsrMatrix->rowPtr[solve_index + 1] - 1; j++) {
+	int col = ldcsrMatrix->colIndices[j];
+        leftSum += x[col] * ldcsrMatrix->values[j];
       }
-      x[solve_index] = (b[solve_index] - componentSum) / ldcscMatrix->values[ldcscMatrix->colPtr[solve_index]];
+      x[solve_index] = (b[solve_index] - leftSum) / ldcsrMatrix->values[j];
 
-      for (int i = ldcscMatrix->colPtr[solve_index]; i < ldcscMatrix->colPtr[solve_index + 1]; i++) {
-        int row = ldcscMatrix->rowIndices[i];
-        int ready;
-        #pragma omp atomic capture seq_cst
-        ready = --(dependencies[ldcscMatrix->rowIndices[i]]);
-        if (ready == 0) {
-          indexQueue.enqueue(ldcscMatrix->rowIndices[i]);
+      for (int k = ldcscMatrix->colPtr[solve_index] + 1; k < ldcscMatrix->colPtr[solve_index + 1]; k++) {
+        int row = ldcscMatrix->rowIndices[k];
+        if (--(dependencies[row]) == 0) {
+          indexQueue.enqueue(row);
         }
       }
-      #pragma omp atomic update seq_cst
-      solved += 1;
     }
   }
-  delete[] dependencies;
+  }
 }
 
 string CameronSolver::getName() {
