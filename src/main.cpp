@@ -1,6 +1,7 @@
 #include "profiler.h"
 #include "docopt.h"
 #include "matrix.h"
+#include "mmmatrix.h"
 #include "method.h"
 #include <stdlib.h>
 #include <cmath>
