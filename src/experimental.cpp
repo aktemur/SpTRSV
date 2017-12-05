@@ -23,31 +23,36 @@ void ExperimentalSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
     int threadId = omp_get_thread_num();
     int length = ldcsrMatrix->rowPtr[i + 1] - ldcsrMatrix->rowPtr[i];
     unknownVars[i] = length - 1;
-    if (unknownVars[i] == 0) {
-      rowsToSolve[threadId].push_back(i);
-    }
   }
 }
 
 void ExperimentalSolver::forwardSolve(double* __restrict b, double* __restrict x) {
   int N = ldcscMatrix->N;
   atomic<int> *knownVars = new atomic<int>[N];
-  std::vector<std::deque<int> > assignedRows;
-  assignedRows.resize(omp_get_max_threads());
+  assert(sizeof(int) == sizeof(atomic<int>));
+  memset(knownVars, 0, sizeof(atomic<int>) * N);
 
   #pragma omp parallel for
   for (int i = 0; i < N; i++) {
-    knownVars[i] = 0;
+    if (unknownVars[i] == 0) {
+      int threadId = omp_get_thread_num();
+      double xi = b[i] / ldcsrMatrix->values[ldcsrMatrix->rowPtr[i]];
+      x[i] = xi;
+      for (int k = ldcscMatrix->colPtr[i] + 1; k < ldcscMatrix->colPtr[i+1]; k++) {
+	int row = ldcscMatrix->rowIndices[k];
+	if (++(knownVars[row]) == unknownVars[row]) {
+	  rowsToSolve[threadId].push_back(row);
+	}
+      }
+    }
   }
-  
+
   #pragma omp parallel
   {
     int threadId = omp_get_thread_num();
-    assignedRows[threadId] = rowsToSolve[threadId];
-    while (!assignedRows[threadId].empty()) {
-      int i = assignedRows[threadId].front();
-      //printf("%d ", i);
-      assignedRows[threadId].pop_front();
+    while (!rowsToSolve[threadId].empty()) {
+      int i = rowsToSolve[threadId].front();
+      rowsToSolve[threadId].pop_front();
       double leftsum = 0;
       int j;
       for (j = ldcsrMatrix->rowPtr[i]; j < ldcsrMatrix->rowPtr[i + 1] - 1; j++) {
@@ -59,11 +64,12 @@ void ExperimentalSolver::forwardSolve(double* __restrict b, double* __restrict x
       for (int k = ldcscMatrix->colPtr[i] + 1; k < ldcscMatrix->colPtr[i+1]; k++) {
 	int row = ldcscMatrix->rowIndices[k];
 	if (++(knownVars[row]) == unknownVars[row]) {
-	  assignedRows[threadId].push_back(row);
+	  rowsToSolve[threadId].push_back(row);
 	}
       }
     }
   }
+
   delete[] knownVars;
 }
 
