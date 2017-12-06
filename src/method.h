@@ -6,6 +6,7 @@
 #include <tbb/concurrent_queue.h>
 #include <queue>
 #include <deque>
+#include <atomic>
 #include "concurrentqueue.h"
 #ifdef MKL_EXISTS
 #include <mkl.h>
@@ -166,6 +167,7 @@ namespace thundercat {
     CSRMatrix *udcsrMatrix;
     CSCMatrix *udcscMatrix;
     int *unknownVars;
+    std::atomic<int> *dependencies;
     std::vector<std::deque<int> > rowsToSolve;
   };
 

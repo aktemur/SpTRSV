@@ -238,23 +238,32 @@ void CameronSolver::forwardSolve(double *__restrict b, double *__restrict x) {
 
   tbb::atomic<int> solved;
   solved = 0;
-
+  memcpy(dependencies, initialDependencies, sizeof(int) * ldcscMatrix->N);
+  
   #pragma omp parallel for
   for (int i = 0; i < ldcscMatrix->M; i++) {
-    dependencies[i] = initialDependencies[i];
     if (initialDependencies[i] == 0) {
-      indexQueue.enqueue(i);
+      //solved++;
+      x[i] = b[i] / ldcsrMatrix->values[ldcsrMatrix->rowPtr[i]];
+
+      for (int k = ldcscMatrix->colPtr[i] + 1; k < ldcscMatrix->colPtr[i + 1]; k++) {
+        int row = ldcscMatrix->rowIndices[k];
+        if (--(dependencies[row]) == 0) {
+          indexQueue.enqueue(row);
+        }
+      }
     }
   }
 
+  
   #pragma omp parallel
   {
-  while (solved < ldcscMatrix->M) {
+  while (indexQueue.size_approx() > 0) {
 
     int solve_index = -1;
 
     if (indexQueue.try_dequeue(solve_index)) {
-      solved++;
+      //solved++;
       double leftSum = 0.0;
       int j = ldcsrMatrix->rowPtr[solve_index];
       for (; j < ldcsrMatrix->rowPtr[solve_index + 1] - 1; j++) {
@@ -272,6 +281,7 @@ void CameronSolver::forwardSolve(double *__restrict b, double *__restrict x) {
     }
   }
   }
+  
 }
 
 string CameronSolver::getName() {

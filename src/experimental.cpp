@@ -24,23 +24,23 @@ void ExperimentalSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
     int length = ldcsrMatrix->rowPtr[i + 1] - ldcsrMatrix->rowPtr[i];
     unknownVars[i] = length - 1;
   }
+  dependencies = new atomic<int>[ldcscMatrix->N];
 }
 
 void ExperimentalSolver::forwardSolve(double* __restrict b, double* __restrict x) {
   int N = ldcscMatrix->N;
-  atomic<int> *knownVars = new atomic<int>[N];
   assert(sizeof(int) == sizeof(atomic<int>));
-  memset(knownVars, 0, sizeof(atomic<int>) * N);
-
+  memcpy(dependencies, unknownVars, sizeof(atomic<int>) * N);
+  
   #pragma omp parallel for
   for (int i = 0; i < N; i++) {
-    if (unknownVars[i] == 0) {
+    if (dependencies[i] == 0) {
       int threadId = omp_get_thread_num();
       double xi = b[i] / ldcsrMatrix->values[ldcsrMatrix->rowPtr[i]];
       x[i] = xi;
       for (int k = ldcscMatrix->colPtr[i] + 1; k < ldcscMatrix->colPtr[i+1]; k++) {
 	int row = ldcscMatrix->rowIndices[k];
-	if (++(knownVars[row]) == unknownVars[row]) {
+	if (--(dependencies[row]) == 0) {
 	  rowsToSolve[threadId].push_back(row);
 	}
       }
@@ -63,14 +63,12 @@ void ExperimentalSolver::forwardSolve(double* __restrict b, double* __restrict x
       x[i] = xi;
       for (int k = ldcscMatrix->colPtr[i] + 1; k < ldcscMatrix->colPtr[i+1]; k++) {
 	int row = ldcscMatrix->rowIndices[k];
-	if (++(knownVars[row]) == unknownVars[row]) {
+	if (--(dependencies[row]) == 0) {
 	  rowsToSolve[threadId].push_back(row);
 	}
       }
     }
   }
-
-  delete[] knownVars;
 }
 
 void ExperimentalSolver::backwardSolve(double* __restrict b, double* __restrict x) {
