@@ -9,14 +9,14 @@
 using namespace thundercat;
 using namespace std;
 
-#define PACKSIZE 16
+#define PACKSIZE 1
 
 ExperimentalSolver::ExperimentalSolver(): taskQueue() {
   // empty
 }
 
 void ExperimentalSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
-                              CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
+			      CSRMatrix *udcsr, CSCMatrix *udcsc, int iters) {
   ldcsrMatrix = ldcsr;
   ldcscMatrix = ldcsc;
   udcsrMatrix = udcsr;
@@ -25,11 +25,13 @@ void ExperimentalSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
   unknownVars = new int[N / PACKSIZE];
   rowsToSolve.resize(omp_get_max_threads());
   
+  int *levels = new int[N / PACKSIZE];
+  int maxLevel = 0;
+  
   memset(unknownVars, 0, sizeof(int) * (N / PACKSIZE));
-
-  #pragma omp parallel for
+  memset(levels, 0, sizeof(int) * (N / PACKSIZE));
+  
   for (int i = 0; i < N; i++) {
-    const int threadId = omp_get_thread_num();
     const int pack = i / PACKSIZE;
     const int packBegin = pack * PACKSIZE;
     const int packEnd = packBegin + PACKSIZE;
@@ -38,13 +40,28 @@ void ExperimentalSolver::init(CSRMatrix *ldcsr, CSCMatrix *ldcsc,
     for (int k = ldcscMatrix->colPtr[i] + 1; k < ldcscMatrix->colPtr[i+1]; k++) {
       const int row = ldcscMatrix->rowIndices[k];
       const int dependentPack = row / PACKSIZE;
-      if (dependentPack == pack)
+      if (dependentPack == pack) {
 	outerDependencies--;
+      } else {
+	if (levels[dependentPack] < levels[pack] + 1) {
+	  levels[dependentPack] = levels[pack] + 1;
+	}
+      }
     }
     unknownVars[pack] += outerDependencies;
+    if (maxLevel < levels[pack]) {
+      maxLevel = levels[pack];
+    }
   }
   
   dependencies = new atomic<int>[N / PACKSIZE];
+
+  dependencyGraph.resize(maxLevel + 1);
+  for (int pack = 0; pack < N / PACKSIZE; pack++) {
+    const int level = levels[pack];
+    dependencyGraph[level].push_back(pack);
+  }
+  delete[] levels;
 }
 
 void ExperimentalSolver::forwardSolve(double* __restrict b, double* __restrict x) {
@@ -52,7 +69,27 @@ void ExperimentalSolver::forwardSolve(double* __restrict b, double* __restrict x
   assert(sizeof(int) == sizeof(atomic<int>));
   memcpy(dependencies, unknownVars, sizeof(atomic<int>) * (N / PACKSIZE));
 
-  commonQueue(b, x);
+  levels(b, x);
+}
+
+void ExperimentalSolver::levels(double* __restrict b, double* __restrict x) {
+  for (int level = 0; level < dependencyGraph.size(); level++) {
+    #pragma omp parallel for
+    for (int k = 0; k < dependencyGraph[level].size(); k++) {
+      const int pack = dependencyGraph[level][k];
+      const int packBegin = pack * PACKSIZE;
+      for (int p = 0; p < PACKSIZE; p++) {
+	const int i = packBegin + p;
+	double leftsum = 0;
+	int j;
+	for (j = ldcsrMatrix->rowPtr[i]; j < ldcsrMatrix->rowPtr[i + 1] - 1; j++) {
+	  const int col = ldcsrMatrix->colIndices[j];
+	  leftsum += ldcsrMatrix->values[j] * x[col];
+	}
+	x[i] = (b[i] - leftsum) / ldcsrMatrix->values[j];
+      }
+    }
+  }
 }
 
 void ExperimentalSolver::localQueue(double* __restrict b, double* __restrict x) {
@@ -109,7 +146,7 @@ void ExperimentalSolver::localQueue(double* __restrict b, double* __restrict x) 
   }
 }
 
-void ExperimentalSolver::commonQueue(double* __restrict b, double* __restrict x) {
+void ExperimentalSolver::sharedQueue(double* __restrict b, double* __restrict x) {
   atomic<int> solved = 0;
   const int N = ldcscMatrix->N;
 

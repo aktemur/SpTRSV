@@ -172,10 +172,12 @@ namespace thundercat {
     std::atomic<int> *dependencies;
     std::vector<std::deque<int> > rowsToSolve;
     moodycamel::ConcurrentQueue<int> taskQueue;
-
+    std::vector< std::vector<int> > dependencyGraph;
+    
     void spinWait(double* __restrict b, double* __restrict x);
     void localQueue(double* __restrict b, double* __restrict x);
-    void commonQueue(double* __restrict b, double* __restrict x);
+    void sharedQueue(double* __restrict b, double* __restrict x);
+    void levels(double* __restrict b, double* __restrict x);
   };
 
   class EuroPar16Solver: public SparseTriangularSolver {
