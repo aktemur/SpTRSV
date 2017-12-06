@@ -151,6 +151,8 @@ namespace thundercat {
 
   class ExperimentalSolver: public SparseTriangularSolver {
   public:
+    ExperimentalSolver();
+    
     virtual void init(CSRMatrix* ldcsr, CSCMatrix* ldcsc,
                       CSRMatrix* udcsr, CSCMatrix* udcsc,
                       int iters);
@@ -169,6 +171,11 @@ namespace thundercat {
     int *unknownVars;
     std::atomic<int> *dependencies;
     std::vector<std::deque<int> > rowsToSolve;
+    moodycamel::ConcurrentQueue<int> taskQueue;
+
+    void spinWait(double* __restrict b, double* __restrict x);
+    void localQueue(double* __restrict b, double* __restrict x);
+    void commonQueue(double* __restrict b, double* __restrict x);
   };
 
   class EuroPar16Solver: public SparseTriangularSolver {
