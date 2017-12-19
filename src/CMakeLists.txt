@@ -33,6 +33,7 @@ set(HEADER_FILES
     concurrentqueue.h
     europar16.hpp
     experimental.hpp
+    hpcs17.hpp
     mklsolver.hpp
     profiler.h
     sequential.hpp

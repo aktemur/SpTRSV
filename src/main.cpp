@@ -5,6 +5,7 @@
 #include "mklsolver.hpp"
 #include "europar16.hpp"
 #include "experimental.hpp"
+#include "hpcs17.hpp"
 #include "mmmatrix.hpp"
 #include <stdlib.h>
 #include <cmath>
@@ -60,7 +61,7 @@ static const char USAGE[] =
 R"(OzU SRL SpTRSV.
 
   Usage:
-    sptrsv <mtxFile> (seqCSR | seqCSC | mklCSR | mklCSC | mklIECSR | europar16 | experimental)
+    sptrsv <mtxFile> (seqCSR | seqCSC | mklCSR | mklCSC | mklIECSR | europar16 | hpcs17 | experimental)
       [--threads=<num>] [--debug] [--iters=<count>]
     sptrsv (-h | --help)
     sptrsv --version
@@ -91,6 +92,8 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
     method = make_unique<MKLInspectorExecutorCSRSolver<VALUETYPE>>();
   } else if (args["europar16"].asBool()) {
     method = make_unique<EuroPar16Solver<VALUETYPE>>();
+  } else if (args["hpcs17"].asBool()) {
+    method = make_unique<HPCS17Solver<VALUETYPE>>();
   } else if (args["experimental"].asBool()) {
     method = make_unique<ExperimentalSolver<VALUETYPE>>();
   } else {
