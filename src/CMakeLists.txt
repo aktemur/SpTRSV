@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.8)
+cmake_minimum_required(VERSION 3.1)
 project(SpTRSV)
 
 # Set a default build type if none was specified
@@ -25,32 +25,33 @@ set(dir ${CMAKE_CURRENT_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${dir}")
 
 set(SOURCE_FILES
-    europar16.cpp
-    experimental.cpp
     main.cpp
-    method.cpp
-    mkl.cpp
     profiler.cpp
-    sequential.cpp
-    parallel.cpp
 )
 
 set(HEADER_FILES
-    method.h
+    concurrentqueue.h
+    europar16.hpp
+    experimental.hpp
+    hpcs17.hpp
+    mklsolver.hpp
     profiler.h
+    sequential.hpp
+    solver.hpp
 )
 
-add_executable(sptrsv ${SOURCE_FILES} ${HEADER_FILES})
+add_executable(sptrsv ${SOURCE_FILES})
+target_sources(sptrsv PUBLIC ${HEADER_FILES})
 
 ##
 ## MMMatrixIO library
 ##
-include_directories(${CMAKE_SOURCE_DIR}/../MMMatrixIO/src)
 find_library(MMMatrixIO
   mmmatrixio
   PATHS ${CMAKE_SOURCE_DIR}/../lib/mmmatrixio
 )
 target_link_libraries(sptrsv ${MMMatrixIO})
+target_include_directories(sptrsv PUBLIC ${CMAKE_SOURCE_DIR}/../MMMatrixIO/src)
 
 ##
 ## docopt library
@@ -118,3 +119,8 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
 find_package(TBB)
 target_link_libraries(sptrsv tbb)
 
+##
+## Boost
+##
+#find_package(Boost)
+#include_directories(${Boost_INCLUDE_DIR})

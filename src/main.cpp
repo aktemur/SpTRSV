@@ -1,30 +1,34 @@
 #include "profiler.h"
 #include "docopt.h"
-#include "matrix.h"
-#include "method.h"
+#include "solver.hpp"
+#include "sequential.hpp"
+#include "mklsolver.hpp"
+#include "europar16.hpp"
+#include "experimental.hpp"
+#include "hpcs17.hpp"
+#include "mmmatrix.hpp"
 #include <stdlib.h>
 #include <cmath>
 #include <iostream>
 #include <chrono>
 #include <algorithm>
-#ifdef OPENMP_EXISTS
-#include "omp.h"
-#endif
+
+#define VALUETYPE double
 
 using namespace thundercat;
 using namespace std;
 
 string filename;
-CSCMatrix *ldCSCMatrix;
-CSRMatrix *ldCSRMatrix;
-CSCMatrix *udCSCMatrix;
-CSRMatrix *udCSRMatrix;
-SparseTriangularSolver *method;
-double *bVector;
-double *xVector;
-double *yVector;
-double *xVectorReference;
-double *yVectorReference;
+unique_ptr<CSCMatrix<VALUETYPE>> ldCSCMatrix;
+unique_ptr<CSRMatrix<VALUETYPE>> ldCSRMatrix;
+unique_ptr<CSCMatrix<VALUETYPE>> udCSCMatrix;
+unique_ptr<CSRMatrix<VALUETYPE>> udCSRMatrix;
+unique_ptr<SparseTriangularSolver<VALUETYPE>> method;
+VALUETYPE *bVector;
+VALUETYPE *xVector;
+VALUETYPE *yVector;
+VALUETYPE *xVectorReference;
+VALUETYPE *yVectorReference;
 
 bool DEBUG_MODE_ON;
 int NUM_THREADS;
@@ -32,7 +36,7 @@ int ITERS;
 
 // allocate a large buffer to flush out cache
 static const size_t LLC_CAPACITY = 32*1024*1024;
-static const double *bufToFlushLlc = NULL;
+static const VALUETYPE *bufToFlushLlc = NULL;
 
 
 //----------------------------------------------------------
@@ -57,7 +61,7 @@ static const char USAGE[] =
 R"(OzU SRL SpTRSV.
 
   Usage:
-    sptrsv <mtxFile> (tbbCSC | ompCSC | camCSC | seqparCSC | seqCSR | seqCSC | mklCSR | mklCSC | mklIECSR | mklIECSC | europar16 | experimental)
+    sptrsv <mtxFile> (seqCSR | seqCSC | mklCSR | mklCSC | mklIECSR | europar16 | hpcs17 | experimental)
       [--threads=<num>] [--debug] [--iters=<count>]
     sptrsv (-h | --help)
     sptrsv --version
@@ -77,29 +81,21 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
   DEBUG_MODE_ON = args["--debug"].asBool();
 
   if (args["seqCSR"].asBool()) {
-    method = new SequentialCSRSolver;
+    method = make_unique<SequentialCSRSolver<VALUETYPE>>();
   } else if (args["seqCSC"].asBool()) {
-    method = new SequentialCSCSolver;
+    method = make_unique<SequentialCSCSolver<VALUETYPE>>();
   } else if (args["mklCSR"].asBool()) {
-    method = new MKLCSRSolver;
+    method = make_unique<MKLCSRSolver<VALUETYPE>>();
   } else if (args["mklCSC"].asBool()) {
-    method = new MKLCSCSolver;
+    method = make_unique<MKLCSCSolver<VALUETYPE>>();
   } else if (args["mklIECSR"].asBool()) {
-    method = new MKLInspectorExecutorCSRSolver;
-  } else if (args["mklIECSC"].asBool()) {
-    method = new MKLInspectorExecutorCSCSolver;
-  } else if (args["tbbCSC"].asBool()) {
-    method = new TBBSolver();
-  } else if (args["ompCSC"].asBool()) {
-    method = new OmpStlSolver();
-  } else if (args["camCSC"].asBool()) {
-    method = new CameronSolver();
-  } else if (args["seqparCSC"].asBool()) {
-    method = new SeqParSolver();
+    method = make_unique<MKLInspectorExecutorCSRSolver<VALUETYPE>>();
   } else if (args["europar16"].asBool()) {
-    method = new EuroPar16Solver;
+    method = make_unique<EuroPar16Solver<VALUETYPE>>();
+  } else if (args["hpcs17"].asBool()) {
+    method = make_unique<HPCS17Solver<VALUETYPE>>();
   } else if (args["experimental"].asBool()) {
-    method = new ExperimentalSolver;
+    method = make_unique<ExperimentalSolver<VALUETYPE>>();
   } else {
     cerr << "Unexpection situation occurred while parsing the method.\n";
     exit(1);
@@ -128,7 +124,7 @@ void initializeThreads() {
 }
 
 void loadMatrix() {
-  MMMatrix *mmMatrix = MMMatrix::fromFile(filename);
+  unique_ptr<MMMatrix<VALUETYPE>> mmMatrix = MMMatrix<VALUETYPE>::fromFile(filename);
   if (!mmMatrix->isSquare()) {
     cerr << "Only square matrices are accepted.\n";
     exit(1);
@@ -138,25 +134,23 @@ void loadMatrix() {
     exit(1);
   }
   
-  MMMatrix *ldMatrix = mmMatrix->getLD();
-  MMMatrix *udMatrix = mmMatrix->getUD();
-  delete mmMatrix;
+  unique_ptr<MMMatrix<VALUETYPE>> ldMatrix = mmMatrix->getLD();
+  unique_ptr<MMMatrix<VALUETYPE>> udMatrix = mmMatrix->getUD();
+  mmMatrix.release();
   ldCSCMatrix = ldMatrix->toCSC();
   ldCSRMatrix = ldMatrix->toCSR();
   udCSCMatrix = udMatrix->toCSC();
   udCSRMatrix = udMatrix->toCSR();
-  delete ldMatrix;
-  delete udMatrix;
 }
 
-void spmvCSR(const CSRMatrix *csr, const double *v, double *w) {
+void spmvCSR(unique_ptr<CSRMatrix<VALUETYPE>> const &csr, const VALUETYPE *v, VALUETYPE *w) {
   int N = csr->N;
   int *rowPtr = csr->rowPtr;
   int *cols = csr->colIndices;
-  double *vals = csr->values;
+  VALUETYPE *vals = csr->values;
   
   for (int i = 0; i < N; i++) {
-    double sum = 0.0;
+    VALUETYPE sum = 0.0;
     for (int k = rowPtr[i]; k < rowPtr[i+1]; k++) {
       sum += vals[k] * v[cols[k]];
     }
@@ -166,11 +160,11 @@ void spmvCSR(const CSRMatrix *csr, const double *v, double *w) {
 
 void populateVectors() {
   int N = ldCSRMatrix->N;
-  xVector = new double[N];
-  yVector = new double[N];
-  xVectorReference = new double[N];
-  yVectorReference = new double[N];
-  bVector = new double[N];
+  xVector = new VALUETYPE[N];
+  yVector = new VALUETYPE[N];
+  xVectorReference = new VALUETYPE[N];
+  yVectorReference = new VALUETYPE[N];
+  bVector = new VALUETYPE[N];
   
   // Initialize the input vector
   for (int j = 0; j < N; j++) {
@@ -188,12 +182,12 @@ void validateResult() {
   int N = ldCSRMatrix->N;
   
   for (int j = 0; j < N; j++) {
-    double diffx = xVectorReference[j] - xVector[j];
+    VALUETYPE diffx = xVectorReference[j] - xVector[j];
     if (fabs(diffx)/fabs(xVectorReference[j]) > 0.00001) {
       cerr << "OOPS!! xVectors different at index "
            << j << ": " << xVectorReference[j] << " vs " << xVector[j] << "\n";
     }
-    double diffy = yVectorReference[j] - yVector[j];
+    VALUETYPE diffy = yVectorReference[j] - yVector[j];
     if (fabs(diffy)/fabs(yVectorReference[j]) > 0.00001) {
       cerr << "OOPS!! yVectors different at index "
       << j << ": " << yVectorReference[j] << " vs " << yVector[j] << "\n";
@@ -219,7 +213,7 @@ void benchmark() {
   if (DEBUG_MODE_ON) {
     cout << "ITERS: " << iters << "\n";
   }
-  method->init(ldCSRMatrix, ldCSCMatrix, udCSRMatrix, udCSCMatrix, iters);
+  method->init(ldCSRMatrix.get(), ldCSCMatrix.get(), udCSRMatrix.get(), udCSCMatrix.get(), iters);
 
   method->forwardSolve(bVector, yVector);
   method->backwardSolve(yVector, xVector);
@@ -254,7 +248,7 @@ void benchmark() {
 
 void flushLLC()
 {
-  double sum = 0;
+  VALUETYPE sum = 0;
 #pragma omp parallel for reduction(+:sum)
   for (size_t i = 0; i < LLC_CAPACITY/sizeof(bufToFlushLlc[0]); ++i) {
     sum += bufToFlushLlc[i];
