@@ -61,7 +61,7 @@ static const char USAGE[] =
 R"(OzU SRL SpTRSV.
 
   Usage:
-    sptrsv <mtxFile> (seqCSR | seqCSC | mklCSR | mklCSC | mklIECSR | europar16 | hpcs17 | experimental)
+    sptrsv <mtxFile> (seqCSR | seqCSC | seqCSRLen | mklCSR | mklCSC | mklIECSR | europar16 | hpcs17 | experimental)
       [--threads=<num>] [--debug] [--iters=<count>]
     sptrsv (-h | --help)
     sptrsv --version
@@ -84,6 +84,8 @@ void parseCommandLineOptions(int argc, const char *argv[]) {
     method = make_unique<SequentialCSRSolver<VALUETYPE>>();
   } else if (args["seqCSC"].asBool()) {
     method = make_unique<SequentialCSCSolver<VALUETYPE>>();
+  } else if (args["seqCSRLen"].asBool()) {
+    method = make_unique<SequentialCSRLenSolver<VALUETYPE>>();
   } else if (args["mklCSR"].asBool()) {
     method = make_unique<MKLCSRSolver<VALUETYPE>>();
   } else if (args["mklCSC"].asBool()) {

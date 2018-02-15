@@ -76,4 +76,49 @@ public:
   }
 };
 
+}
+
+void csrLenForwardSolve(int *rowPtr, int *colIndices, double *values, double *x, double *b, unsigned int N);
+
+namespace thundercat {
+template<typename ValueType>
+class SequentialCSRLenSolver: public SparseTriangularSolver<ValueType> {
+public:
+  virtual void init(CSRMatrix<ValueType> *ldcsr, CSCMatrix<ValueType> *ldcsc,
+                    CSRMatrix<ValueType> *udcsr, CSCMatrix<ValueType> *udcsc,
+                    int iters) {
+    SparseTriangularSolver<ValueType>::init(ldcsr, ldcsc, udcsr, udcsc, iters);
+
+    // Convert the matrix to CSRLen format
+    unsigned int i = 0;
+    for (; i < ldcsr->N; i++) {
+      int length = ldcsr->rowPtr[i + 1] - ldcsr->rowPtr[i];
+      length--;
+      ldcsr->rowPtr[i] = -(length * 22);
+    }
+    ldcsr->rowPtr[i] = (6 + 4 + 5 + 5 + 3 + 3) + (3 + 4 + 7 + 3 + 3);
+  }
+
+  virtual void forwardSolve(ValueType* __restrict b, ValueType* __restrict x) {
+    csrLenForwardSolve(this->ldcsrMatrix->rowPtr, this->ldcsrMatrix->colIndices, this->ldcsrMatrix->values,
+                       x, b, this->ldcsrMatrix->N);
+  }
+  
+  virtual void backwardSolve(ValueType* __restrict b, ValueType* __restrict x) {
+    for (int i = this->udcsrMatrix->N - 1; i >= 0; i--) {
+      ValueType sum = 0.0;
+      int k;
+      for (k = this->udcsrMatrix->rowPtr[i+1] - 1; k > this->udcsrMatrix->rowPtr[i]; k--) {
+        int col = this->udcsrMatrix->colIndices[k];
+        sum += this->udcsrMatrix->values[k] * x[col];
+      }
+      x[i] = (b[i] - sum) / this->udcsrMatrix->values[k];
+    }
+  }
+  
+  virtual std::string getName() {
+    return "SequentialCSRLen";
+  }
+};
+  
 } // namespace thundercat

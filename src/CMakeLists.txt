@@ -37,6 +37,7 @@ set(HEADER_FILES
     mklsolver.hpp
     profiler.h
     sequential.hpp
+    csrlenForwardSolve.cpp
     solver.hpp
 )
 
