@@ -11,13 +11,13 @@ class SequentialCSRSolver: public SparseTriangularSolver<ValueType> {
 public:
   virtual void forwardSolve(ValueType* __restrict b, ValueType* __restrict x) {
     for (int i = 0; i < this->ldcsrMatrix->N; i++) {
-      ValueType sum = 0.0;
+      ValueType sum = b[i];
       int k;
       for (k = this->ldcsrMatrix->rowPtr[i]; k < this->ldcsrMatrix->rowPtr[i+1] - 1; k++) {
         int col = this->ldcsrMatrix->colIndices[k];
-        sum += this->ldcsrMatrix->values[k] * x[col];
+        sum -= this->ldcsrMatrix->values[k] * x[col];
       }
-      x[i] = (b[i] - sum) / this->ldcsrMatrix->values[k];
+      x[i] = sum / this->ldcsrMatrix->values[k];
     }
   }
   
@@ -41,8 +41,16 @@ public:
 template<typename ValueType>
 class SequentialCSCSolver: public SparseTriangularSolver<ValueType> {
 public:
+  virtual void init(CSRMatrix<ValueType> *ldcsr, CSCMatrix<ValueType> *ldcsc,
+                    CSRMatrix<ValueType> *udcsr, CSCMatrix<ValueType> *udcsc,
+                    int iters) {
+    SparseTriangularSolver<ValueType>::init(ldcsr, ldcsc, udcsr, udcsc, iters);
+
+    leftsum = new ValueType[this->ldcscMatrix->M];
+    rightsum = new ValueType[this->udcscMatrix->M];
+  }
+
   virtual void forwardSolve(ValueType* __restrict b, ValueType* __restrict x) {
-    ValueType *leftsum = new ValueType[this->ldcscMatrix->M];
     memset(leftsum, 0, sizeof(ValueType) * this->ldcscMatrix->M);
     
     for (int j = 0; j < this->ldcscMatrix->M; j++) {
@@ -52,12 +60,9 @@ public:
         leftsum[row] += this->ldcscMatrix->values[k] * x[j];
       }
     }
-    
-    delete[] leftsum;
   }
   
   virtual void backwardSolve(ValueType* __restrict b, ValueType* __restrict x) {
-    ValueType *rightsum = new ValueType[this->udcscMatrix->M];
     memset(rightsum, 0, sizeof(ValueType) * this->udcscMatrix->M);
     
     for (int j = this->udcscMatrix->M - 1; j >= 0; j--) {
@@ -67,13 +72,20 @@ public:
         rightsum[row] += this->udcscMatrix->values[k] * x[j];
       }
     }
-    
-    delete[] rightsum;
   }
   
   virtual std::string getName() {
     return "SequentialCSC";
   }
+
+  virtual ~SequentialCSCSolver() {
+    delete[] leftsum;
+    delete[] rightsum;
+  }
+  
+private:
+  ValueType *leftsum;
+  ValueType *rightsum;
 };
 
 }
@@ -96,7 +108,7 @@ public:
       length--;
       ldcsr->rowPtr[i] = -(length * 22);
     }
-    ldcsr->rowPtr[i] = (6 + 4 + 5 + 5 + 3 + 3) + (3 + 4 + 7 + 3 + 3);
+    ldcsr->rowPtr[i] = (5 + 5 + 3 + 3) + (6 + 4 + 7 + 3 + 3);
   }
 
   virtual void forwardSolve(ValueType* __restrict b, ValueType* __restrict x) {

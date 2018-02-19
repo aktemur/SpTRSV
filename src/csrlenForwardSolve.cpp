@@ -3,7 +3,7 @@
   __asm__("movsd (%rdx,%rax,8), %xmm1"); \
   __asm__("incq %rax");                  \
   __asm__("mulsd (%rcx,%r9,8), %xmm1");  \
-  __asm__("addsd %xmm1, %xmm0");         \
+  __asm__("subsd %xmm1, %xmm0");         \
 
 
 #define BODY_5    ONELINE ONELINE ONELINE ONELINE ONELINE
@@ -37,23 +37,21 @@ void csrLenForwardSolve(int* __restrict rowPtr, int* __restrict colIndices, doub
   __asm__("movsd (%rdx,%rax,8), %xmm1");// xmm1 <- vals[k]
   __asm__("incq %rax");                 // k++
   __asm__("mulsd (%rcx,%r9,8), %xmm1"); // xmm1 <- xmm1 * v[r9]
-  __asm__("addsd %xmm1, %xmm0");        // sum <- sum + xmm1
+  __asm__("subsd %xmm1, %xmm0");        // sum <- sum - xmm1
 
-  BODY_500
+  BODY_25
   // L_0:
 
-  __asm__("movsd (%r8,%rbx,8), %xmm2"); // xmm2 <- b[i]             ; 6 bytes
-  __asm__("subsd %xmm0, %xmm2");        // xmm2 <- xmm2 - sum       ; 4 bytes
-  __asm__("divsd (%rdx,%rax,8), %xmm2");// xmm2 <- xmm2 / values[k] ; 5 bytes
-  __asm__("movsd %xmm2, (%rcx,%rbx,8)");// x[i] <- xmm2             ; 5 bytes
+  __asm__("divsd (%rdx,%rax,8), %xmm0");// xmm0 <- xmm0 / values[k] ; 5 bytes
+  __asm__("movsd %xmm0, (%rcx,%rbx,8)");// x[i] <- xmm0             ; 5 bytes
   __asm__("incq %rax");                 // k++                      ; 3 bytes
   __asm__("incq %rbx");                 // i++                      ; 3 bytes
 
   // init:
   __asm__("init:");
-  __asm__("xorps %xmm0, %xmm0");        // sum <- 0          ; 3 bytes
+  __asm__("movsd (%r8,%rbx,8), %xmm0"); // sum <- b[i]       ; 6 bytes
   __asm__("movslq (%rdi,%rbx,4), %r9"); // r9 <- rows[i]     ; 4 bytes
-  __asm__("leaq -40(%rip), %r10");      // r10 <- &&L_0      ; 7 bytes  ;  L_0 is (6+4+5+5+3+3)+(3+4+7)=37 bytes behind
+  __asm__("leaq -33(%rip), %r10");      // r10 <- &&L_0      ; 7 bytes  ;  L_0 is (5+5+3+3)+(6+4+7)=33 bytes behind
   __asm__("addq %r9, %r10");            // r10 <- r10 + r9
   __asm__("jmp *%r10");
 
